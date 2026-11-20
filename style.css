@@ -122,7 +122,7 @@ input.field { font: 700 20px var(--f-text); padding: 10px 14px; border: 3px soli
 .track .f.mid { background: #FBF1DA; border-top: 2px dashed #2E2118; border-bottom: 2px dashed #2E2118; }
 .track .nest { position: absolute; left: 50px; width: 86px; }
 .track .nest.top { top: -4px; } .track .nest.bot { top: 452px; }
-.track .rooster { position: absolute; left: 64px; width: 58px; height: 58px; transition: top .6s cubic-bezier(.4,1.6,.5,1); z-index: 2; filter: drop-shadow(0 2px 2px rgba(40,20,5,.4)); }
+.track .rooster { position: absolute; left: 64px; width: 58px; height: 58px; z-index: 2; filter: drop-shadow(0 2px 2px rgba(40,20,5,.4)); }
 .track .loss { position: absolute; left: 128px; width: 36px; height: 36px; }
 .track .vpz { position: absolute; left: 4px; width: 58px; display: flex; align-items: center; justify-content: flex-end; gap: 3px; font: 800 26px var(--f-title); color: #3A2414; }
 .track .vpz .ico { width: 22px; height: 22px; }
@@ -341,7 +341,63 @@ input.field { font: 700 20px var(--f-text); padding: 10px 14px; border: 3px soli
 .ktf { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; font-size: 18px; }
 .ktf .kt { --kt: 170px; } .ktf .kt-name { display: none; }
 
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } #fx { display: none; } }
+
+/* ---------- animacje (fx.js): warstwa nad sceną, te same współrzędne 1920×1080 ---------- */
+/* #fx leży poza #stage, więc zmienne --frame itd. ze sceny tu nie działają: kolory wpisane wprost. */
+#fx { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; pointer-events: none; z-index: 100; }
+.fx-g { position: absolute; transform-origin: 50% 50%; will-change: transform, opacity; }
+.fx-g.lift { filter: drop-shadow(0 14px 12px rgba(40,20,5,.45)); }
+.fx-g.opp > .kc, .fx-g.opp > .kw { box-shadow: 0 0 0 4px #B8442F, 0 0 26px 9px rgba(184,68,47,.75); }
+.fx-tag { position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, -10px); white-space: nowrap; padding: 3px 14px; border-radius: 999px;
+  background: linear-gradient(#B8442F, #8E2E20); border: 2px solid #5E1C12; color: #FBEBC0; font: 800 20px var(--f-title); box-shadow: 0 3px 6px rgba(40,20,5,.4); }
+.fx-hide { visibility: hidden !important; }
+.fx-pre { filter: grayscale(1) brightness(.92); }
+.fx-pre .kw-stamp { display: none !important; }
+.fx-sym { opacity: .35 !important; filter: grayscale(1) !important; box-shadow: none !important; }
+.fx-ic .ico, .fx-g > .loss .ico { width: 100%; height: 100%; }
+.fx-g > .loss { display: block; width: 100%; height: 100%; }
+.fx-g > .kt-disc { width: 100%; }
+.fx-ash { filter: grayscale(1) brightness(.35) sepia(.5); }
+.fx-sad { filter: grayscale(1) brightness(.8); }
+.fx-ring { border: 5px solid #2E2118; border-radius: 14px; }
+.fx-pop { display: grid; place-items: center; font: 900 40px var(--f-title); color: #3A2414; text-shadow: 0 2px 0 #FBEBC0, 0 0 10px #FBEBC0, 0 0 4px #FBEBC0; }
+.fx-paw { border-radius: 50%; background: #F2CF6A; border: 2px solid #8A5E16; box-shadow: 0 0 10px 3px rgba(242,207,106,.8); }
+/* spalenie: maska kurczy się od krawędzi, brzeg przypalony */
+@property --burn { syntax: '<percentage>'; inherits: true; initial-value: 160%; }
+@keyframes fx-burn { from { --burn: 160%; } to { --burn: 0%; } }
+.fx-burn { animation: fx-burn var(--d, .85s) ease-in forwards;
+  -webkit-mask-image: radial-gradient(circle at 58% 70%, #000 calc(var(--burn) - 24%), transparent var(--burn));
+  mask-image: radial-gradient(circle at 58% 70%, #000 calc(var(--burn) - 24%), transparent var(--burn)); }
+.fx-burn::after { content: ''; position: absolute; inset: 0; border-radius: 8px; mix-blend-mode: multiply;
+  background: radial-gradient(circle at 58% 70%, transparent calc(var(--burn) - 46%), rgba(150,70,20,.9) calc(var(--burn) - 26%), #24120A calc(var(--burn) - 10%)); }
+/* baner nowej Ery z pękającym jajkiem */
+.fx-era { display: flex; align-items: center; justify-content: center; }
+.fx-era-in { display: flex; align-items: center; gap: 30px; padding: 18px 70px; background: linear-gradient(#FBEBC0, #E9CF8F); border: 4px solid #B98A2E;
+  box-shadow: 0 0 0 3px #2E2118, 0 10px 24px rgba(40,20,5,.45); clip-path: polygon(0 0, 100% 0, calc(100% - 34px) 50%, 100% 100%, 0 100%, 34px 50%); }
+.fx-egg { position: relative; width: 120px; height: 140px; }
+.fx-half { position: absolute; inset: 0; }
+.fx-half .ico { width: 100%; height: 100%; }
+.fx-half.l { clip-path: polygon(0 0, 50% 0, 42% 34%, 57% 56%, 46% 100%, 0 100%); }
+.fx-half.r { clip-path: polygon(50% 0, 100% 0, 100% 100%, 46% 100%, 57% 56%, 42% 34%); }
+.fx-num { position: absolute; inset: 0; display: grid; place-items: center; font: 900 66px var(--f-title); color: #8E2E20; text-shadow: 0 3px 0 #FBEBC0; }
+.fx-era-t { display: flex; flex-direction: column; color: #3A2414; }
+.fx-era-t small { font: 800 20px var(--f-text); letter-spacing: 4px; text-transform: uppercase; color: #8A5A30; }
+.fx-era-t b { font: 900 64px/1 var(--f-title); white-space: nowrap; }
+/* „Twój ruch!”, dymek koguta, korona zwycięzcy */
+.fx-turn { display: grid; place-items: center; }
+.fx-turn span { padding: 10px 70px 14px; font: 900 62px/1 var(--f-title); color: #FBEBC0; text-shadow: 0 4px 0 #5E1C12; white-space: nowrap;
+  background: linear-gradient(#B8442F, #8E2E20); border: 3px solid #5E1C12; box-shadow: 0 0 0 3px #E8B83A, 0 10px 22px rgba(40,20,5,.45);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 30px) 50%, 100% 100%, 0 100%, 30px 50%); }
+.fx-crow { display: grid; place-items: center; background: #FBF1DA; border: 3px solid #2E2118; border-radius: 22px 22px 22px 4px; font: 900 28px var(--f-title); color: #8E2E20;
+  box-shadow: 0 4px 0 rgba(46,33,24,.35); transform-origin: 0 100%; }
+.fx-seal { position: absolute; left: 50%; top: -64px; width: 120px; margin-left: -60px; filter: drop-shadow(0 4px 4px rgba(40,20,5,.4)); pointer-events: none; }
+.fx-seal svg { width: 100%; display: block; }
+.overlay.fx-wait { opacity: 0; pointer-events: none !important; }
+@keyframes fx-tick { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+#timer.low { animation: fx-tick 1s ease-in-out infinite; }
+body.nofx #timer.low { animation: none; }
+body.nofx #fx { display: none; }
 .track .rooster .ico, .track .nest .ico, .track .loss .ico { width: 100%; height: 100%; }
 .dlg .tab-list { font-size: 20px; } .dlg .dialog p { font-size: 19px; }
 

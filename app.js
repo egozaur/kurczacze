@@ -4,9 +4,11 @@ import * as KI from './ki.js';
 import { icon, coin, sym, chain, SYMBOLS } from './icons.js';
 import { cardHTML, backHTML, wonderHTML, tokenHTML, tokenFullHTML, effectHTML, costHTML, esc } from './cards.js';
 import { rulesHTML, legendHTML } from './help.js';
+import * as FX from './fx.js';
 
 const $ = id => document.getElementById(id);
 const $screen = $('screen'), $stage = $('stage');
+FX.init($stage);
 let G = null, V = null, gotAt = 0, status = '';
 const ui = { sel: null, hover: null, pin: null, toast: null, tab: 'karta', tuck: false, dlg: null };
 const COLORS = ['brown', 'grey', 'yellow', 'red', 'blue', 'green', 'purple'];
@@ -37,6 +39,7 @@ const APP = matchMedia('(display-mode: standalone)').matches || navigator.standa
 function fit() {
   const k = Math.min(innerWidth / 1920, innerHeight / 1080);
   $stage.style.transform = `translate(${(innerWidth - 1920 * k) / 2}px, ${(innerHeight - 1080 * k) / 2}px) scale(${k})`;
+  FX.fit();
 }
 addEventListener('resize', fit);
 
@@ -47,7 +50,13 @@ function connect(name) {
   V = null; ui.sel = null; ui.pin = null;
   G = new KI.Game({
     code: code(), name,
-    onState: v => { V = v; gotAt = Date.now(); render(); },
+    // Animacje (fx.js): zrzut sceny i różnica stanów przed przerysowaniem, odtworzenie po nim.
+    onState: v => {
+      const S = FX.snap(), E = FX.diff(V, v);
+      FX.begin(E);
+      V = v; gotAt = Date.now(); render();
+      FX.play(E, S);
+    },
     onError: m => toast(m.err),
     onStatus: s => { status = s; render(); },
   });
@@ -132,6 +141,7 @@ function renderStage() {
   h += overlayHTML(g, me) + dialogHTML(g, me);
   $stage.innerHTML = h;
   renderPreview();
+  FX.reapply();
   fit();
   tick();
 }
@@ -161,9 +171,9 @@ function areaHTML(g, p, side) {
   const info = `<div class="pinfo ${g.actor === p ? 'active' : ''}">
     <div class="ribbon"><span class="pname">${esc(pl.name)}</span>${p === V.seat ? '<span class="you">Ty</span>' : ''}${on ? '' : '<span class="offl">offline</span>'}</div>
     <img class="avatar" src="${UI}avatar-${side === 'me' ? 'me' : 'op'}.png" alt="">
-    <div class="stats"><span title="Ziarna">${icon('coin')}<b>${pl.coins}</b></span><span title="Złote Pióra (teraz)">${icon('feather')}<b>${pl.vp}</b></span></div>
+    <div class="stats"><span title="Ziarna" data-coins>${icon('coin')}<b>${pl.coins}</b></span><span title="Złote Pióra (teraz)" data-vp>${icon('feather')}<b>${pl.vp}</b></span></div>
     <div class="ptokens">${pl.tokens.map(t => tokenHTML(t)).join('')}</div>
-    <div class="symrow">${SYMBOLS.map(s => `<span title="${esc(s)}">${sym(s, (have.has(s) ? 'have' : '') + (two.has(s) ? ' two' : ''))}</span>`).join('')}</div>
+    <div class="symrow">${SYMBOLS.map(s => `<span title="${esc(s)}" data-sym="${esc(s)}">${sym(s, (have.has(s) ? 'have' : '') + (two.has(s) ? ' two' : ''))}</span>`).join('')}</div>
     <div class="prodline">${prod || choice ? prod + (prod && choice ? ' · ' : '') + choice : '<span class="muted">brak produkcji</span>'}</div></div>`;
   // Imperium: kolumny kolorów, szerokość kart dopasowana do liczby kolumn (pole 384×212).
   const cols = COLORS.map(c => pl.cards.filter(id => KI.CARDS[id].color === c)).filter(a => a.length);
@@ -175,7 +185,7 @@ function areaHTML(g, p, side) {
   }).join('') : '';
   const wonders = `<div class="wonders"><div class="w-head">Cuda <small>(${esc(pl.name)})</small></div>
     <div class="w-grid">${pl.wonders.map(w => wonderHTML(w.id, 'mini', '', w.built ? 'built' : '')).join('')}</div></div>`;
-  return `<div class="area ${side}">${info}<div class="empire" style="background-image:url('${UI}land-${side === 'me' ? 'me' : 'op'}.png')">${empire}</div>${wonders}</div>`;
+  return `<div class="area ${side}" data-p="${p}">${info}<div class="empire" style="background-image:url('${UI}land-${side === 'me' ? 'me' : 'op'}.png')">${empire}</div>${wonders}</div>`;
 }
 
 const ROOSTER = `<svg class="ico" viewBox="0 0 64 64"><path d="M14 44c0-14 10-24 22-24 4-6 2-12 2-12s6 2 8 8c4 0 8 2 8 6l-6 2c0 4-2 8-4 10 6 2 10 6 10 12H18c-3 0-4-1-4-2z" fill="#F6EBD3" stroke="#2E2118" stroke-width="3" stroke-linejoin="round"/><path d="M34 12c0-6 4-8 4-8 0 4 3 5 4 2 1 4 3 5 4 4 0 4-2 6-4 6" fill="#B5452F" stroke="#2E2118" stroke-width="2.5" stroke-linejoin="round"/><path d="M54 22l6 3-6 2" fill="#E8B83A" stroke="#2E2118" stroke-width="2.5" stroke-linejoin="round"/><circle cx="46" cy="20" r="2" fill="#2E2118"/><path d="M48 28c2 3 1 6-2 6" fill="#B5452F" stroke="#2E2118" stroke-width="2"/><path d="M14 44c-6-2-10-10-6-18 2 6 6 8 10 8" fill="#56734A" stroke="#2E2118" stroke-width="3" stroke-linejoin="round"/><path d="M28 52v8M38 52v8" stroke="#2E2118" stroke-width="3"/></svg>`;
@@ -193,7 +203,7 @@ function trackHTML(g, me) {
   for (const [k, vp] of [[1.5, 2], [3.5, 4], [5.5, 8]]) for (const sgn of [1, -1]) {
     h += `<span class="vpz" style="top:${TOP + (7 - k * sgn) * FH}px;height:${FH}px" title="${vp} Złote Pióra dla ${sgn > 0 ? 'Ciebie' : 'rywala'} na koniec">${vp}${icon('feather')}</span>`;
   }
-  const lossFor = (victim, sgn) => g.loss[victim].filter(t => !t.used).map(t => `<span class="loss" style="top:${TOP + (7 - t.at * sgn) * FH + FH / 2 - 17}px" title="Pierwsze wejście: −${t.amount} Ziaren">${coin('−' + t.amount)}</span>`).join('');
+  const lossFor = (victim, sgn) => g.loss[victim].filter(t => !t.used).map(t => `<span class="loss" data-loss="${victim}-${t.at}" style="top:${TOP + (7 - t.at * sgn) * FH + FH / 2 - 17}px" title="Pierwsze wejście: −${t.amount} Ziaren">${coin('−' + t.amount)}</span>`).join('');
   h += lossFor(1 - me, 1) + lossFor(me, -1);
   h += `<span class="rooster" style="top:${TOP + (7 - d) * FH + FH / 2 - 28}px" title="Kogut Bojowy">${ROOSTER}</span>`;
   return h + '</div>';
@@ -220,7 +230,7 @@ function boardHTML(g, me) {
   g.slots.forEach((s, i) => {
     if (s.taken) return;
     const pos = `left:${s.x * HALF}px;top:${s.row * STEP}px;z-index:${s.row + 1}`;
-    if (!s.up) { h += `<div class="slot" style="${pos}">${backHTML(g.era)}</div>`; return; }
+    if (!s.up) { h += `<div class="slot" data-i="${i}" style="${pos}">${backHTML(g.era)}</div>`; return; }
     let badge = '', ok = false;
     if (s.free && s.price) {
       const pr = s.price[me]; ok = pr.ok;
@@ -228,7 +238,7 @@ function boardHTML(g, me) {
         : `<span class="price ${pr.ok ? '' : 'no'}" title="${pr.ok ? 'Koszt dla Ciebie' : 'Nie stać Cię'}">${pr.coins}</span>`;
     }
     const cls = `slot ${s.free ? 'free' : ''} ${s.free && myTurn ? 'mine' : ''} ${s.free && myTurn && ok ? 'ok' : ''} ${ui.sel === i ? 'sel' : ''}`;
-    h += `<div class="${cls}" style="${pos}" ${s.free ? `data-act="sel" data-v="${i}"` : ''}>${cardHTML(s.id)}${badge}</div>`;
+    h += `<div class="${cls}" data-i="${i}" style="${pos}" ${s.free ? `data-act="sel" data-v="${i}"` : ''}>${cardHTML(s.id)}${badge}</div>`;
   });
   return h + '</div>';
 }
@@ -350,6 +360,7 @@ function dialogHTML(g, me) {
     <p>Połączenie: <b>${status === 'online' ? 'połączono' : 'łączenie…'}</b></p>
     ${g.players.map((p, i) => `<p>${esc(p.name)}${i === me ? ' (Ty)' : ''}: <b>${V.seats[i] && V.seats[i].on ? 'online' : 'offline'}</b></p>`).join('')}
     <p>Limit czasu na turę: <b>${V.time ? V.time + ' s' : 'bez limitu'}</b></p>
+    <p>Animacje:</p><div class="chips">${FX.MODES.map(([k, l]) => `<span class="chip ${FX.mode() === k ? 'on' : ''}" data-act="fxmode" data-v="${k}">${l}</span>`).join('')}</div>
     <p><button class="btn small" data-act="copy">Skopiuj link do kurnika</button></p>`;
   else if (ui.dlg === 'log') body = `<p class="win-title">Historia rozgrywki</p><div class="log-list full">${logRows(g, me)}</div>`;
   const wide = ui.dlg === 'rules' || ui.dlg === 'legend';
@@ -362,13 +373,14 @@ function overlayHTML(g, me) {
     const title = w.p == null ? 'Remis!' : w.p === me ? 'Wygrywasz!' : `Wygrywa ${esc(g.players[w.p].name)}`;
     const rows = [['military', 'Wojna o Podwórze', icon('spur')], ['cards', 'Karty', icon('card')], ['guilds', 'Bractwa', ''], ['wonders', 'Kurze Cuda', icon('wonder')],
       ['tokens', 'Odkrycia', ''], ['coins', 'Skarbiec', icon('coin')], ['total', 'Razem', icon('feather')]];
-    return `<div class="overlay"><div class="dialog panel"><p class="win-title">${title}</p><p><b>${HOW[w.how] || ''}</b></p>
+    return `<div class="overlay ${FX.holding() ? 'fx-wait' : ''}"><div class="dialog panel"><p class="win-title">${title}</p><p><b>${HOW[w.how] || ''}</b></p>
       ${sc.length ? `<table class="score"><tr><th></th>${g.players.map(p => `<th>${esc(p.name)}</th>`).join('')}</tr>
         ${rows.map(([k, label, ic]) => `<tr class="${k === 'total' ? 'total' : ''}"><th>${ic} ${label}</th>${sc.map(x => `<td>${x[k]}</td>`).join('')}</tr>`).join('')}</table>` : ''}
       <p><button class="btn gold" data-act="rematch">Rewanż</button> <button class="btn" data-act="home">← Lobby</button></p></div></div>`;
   }
   if (!g.pending) return '';
-  if (g.pending.p !== me) return `<div class="overlay" style="background:rgba(46,33,24,.18);pointer-events:none"><div class="dialog panel"><p class="hint">${esc(g.players[g.pending.p].name)} wybiera…</p></div></div>`;
+  const wait = FX.holding() ? 'fx-wait' : '';
+  if (g.pending.p !== me) return `<div class="overlay ${wait}" style="background:rgba(46,33,24,.18);pointer-events:none"><div class="dialog panel"><p class="hint">${esc(g.players[g.pending.p].name)} wybiera…</p></div></div>`;
   const opp = g.players[1 - me];
   let title = '', opts = '';
   if (g.pending.type === 'token' || g.pending.type === 'grab') {
@@ -381,7 +393,7 @@ function overlayHTML(g, me) {
     title = 'Brama Podwórza: przejmij brązową lub szarą kartę rywala';
     opts = opp.cards.filter(id => ['brown', 'grey'].includes(KI.CARDS[id].color)).map(id => `<div data-act="steal" data-v="${id}">${cardHTML(id, 'full')}</div>`).join('');
   }
-  return `<div class="overlay"><div class="dialog panel"><p class="hint">${title}</p><div class="opts">${opts}</div></div></div>`;
+  return `<div class="overlay ${wait}"><div class="dialog panel"><p class="hint">${title}</p><div class="opts">${opts}</div></div></div>`;
 }
 
 // ---------- zegar tury ----------
@@ -449,6 +461,7 @@ document.addEventListener('click', async e => {
     const url = KI.inviteUrl(V.code);
     try { await navigator.clipboard.writeText(url); toast('Skopiowano link: ' + url); } catch (er) { prompt('Skopiuj link zaproszenia:', url); }
   }
+  else if (a === 'fxmode') { FX.setMode(v); renderStage(); }
   else if (a === 'time') G.setTime(Number(v));
   else if (a === 'start') G.start();
   else if (a === 'rematch') { ui.sel = null; G.rematch(); }

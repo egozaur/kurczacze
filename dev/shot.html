@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <title>Kurczacze — podgląd / zrzuty</title>
 <!-- Narzędzie deweloperskie (tryb lokalny): w ramce prawdziwy ekran gry (gracz 1, klika UI), rywal = bot w tej stronie.
-     ?moves=N  zatrzymuje się po N ruchach (zrzuty różnych momentów gry), ?keep  bot gra dalej, a Ty klikasz sam.
+     ?moves=N  zatrzymuje się po N ruchach (zrzuty różnych momentów gry), ?keep  bot gra dalej, a Ty klikasz sam,
+     ?fx  z animacjami (fx.js; domyślnie ramka dostaje &nofx).
      http://localhost:8093/kurczacze/dev/shot.html?local=1&slot=9&moves=20 -->
 <style>html,body{margin:0;height:100%;overflow:hidden} iframe{border:0;width:100vw;height:100vh;display:block} #st{position:fixed;right:6px;bottom:4px;font:11px monospace;background:#fff8;padding:2px 6px;z-index:9}</style>
 </head>
@@ -13,7 +14,7 @@
 <script type="module">
 import * as KI from '../ki.js';
 const q = new URLSearchParams(location.search);
-const MOVES = Number(q.get('moves') || 0), KEEP = q.has('keep');
+const MOVES = Number(q.get('moves') || 0), KEEP = q.has('keep'), PACE = Number(q.get('pace') || 0);   // ?pace=ms: przerwa po ruchu (oglądanie animacji)
 const F = document.getElementById('f'), st = document.getElementById('st');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const d = () => F.contentDocument;
@@ -24,7 +25,7 @@ let moves = 0;
 
 const { code } = await KI.createRoom();
 localStorage.setItem('kurczacze_nick', 'Kurczak');
-F.src = `../index.html?local=1&slot=1#${code}`;
+F.src = `../index.html?local=1&slot=1${q.has('fx') ? '' : '&nofx'}#${code}`;   // ?fx = z animacjami (domyślnie bez, zrzuty jak dawniej)
 await until(() => d().querySelector('[data-act=enter]')).then(b => b.click());
 await until(() => d().body.innerText.includes('(Ty)'));
 let V = null;
@@ -43,6 +44,8 @@ function botMove(g) {
   }
   if (g.phase === 'draft') return bot.move({ a: 'pickWonder', wonder: any(g.draft.offer) });
   const free = g.slots.map((s, i) => [s, i]).filter(([s]) => s.free && !s.taken);
+  const ws = Object.entries(g.wonderPrice ? g.wonderPrice[me] : {}).filter(([, p]) => p.ok);
+  if (ws.length && g.wondersLeft > 0 && rnd() < 0.35) return bot.move({ a: 'wonder', slot: any(free)[1], wonder: any(ws)[0] });
   const ok = free.filter(([s]) => s.price[me].ok);
   if (ok.length && rnd() < 0.8) return bot.move({ a: 'build', slot: any(ok)[1] });
   return bot.move({ a: 'discard', slot: any(free)[1] });
@@ -68,6 +71,7 @@ while ((!MOVES || moves < MOVES) && !(V.game && V.game.phase === 'end')) {
     lastKey = key; lastAt = Date.now();
     if (g.actor === V.seat) botMove(g); else if (!KEEP) await uiMove(); else { await sleep(200); lastKey = ''; continue; }
     moves++;
+    if (PACE) await sleep(PACE);
   }
   st.textContent = `ruchy: ${moves}`;
   await sleep(120);
