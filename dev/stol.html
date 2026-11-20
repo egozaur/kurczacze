@@ -16,7 +16,7 @@
   .brown { background: #d9b48c } .grey { background: #ccc } .blue { background: #9cd } .red { background: #f99 }
   .green { background: #9d9 } .yellow { background: #fe8 } .purple { background: #c9e }
   .layout { position: relative; }
-  .slot { position: absolute; width: 104px; height: 58px; border: 1px solid #888; border-radius: 4px; font-size: 11px; padding: 2px; box-sizing: border-box; overflow: hidden; }
+  .slot { position: absolute; width: 108px; min-height: 62px; border: 1px solid #888; border-radius: 4px; font-size: 11px; padding: 2px; box-sizing: border-box; }
   .slot.down { background: repeating-linear-gradient(45deg, #ddd, #ddd 4px, #eee 4px, #eee 8px); }
   .slot.taken { opacity: .12; }
   .slot.free { border: 2px solid #000; }
@@ -57,7 +57,7 @@ function render() {
   }
   if (!V) { $app.innerHTML = `<p>Łączenie… (${esc(status)}) ${esc(err)}</p>`; return; }
   const g = V.game, me = V.seat;
-  let h = `<p>Pokój <b>${esc(V.code)}</b> · zaproszenie: <code>${esc(KI.inviteUrl(V.code))}${KI.LOCAL ? '&slot=2' : ''}</code> · ${esc(status)}
+  let h = `<p>Pokój <b>${esc(V.code)}</b> · zaproszenie: <code>${esc(KI.inviteUrl(V.code, 'stol.html'))}${KI.LOCAL ? '&slot=2' : ''}</code> · ${esc(status)}
     ${V.left ? ` · ⏱ ${Math.ceil(V.left / 1000)} s` : ''} <button data-act="leave">Wyjdź</button></p>`;
   if (err) h += `<p style="color:#c00">${esc(err)}</p>`;
   h += `<p>Gracze: ${V.seats.map((s, i) => s ? `${esc(s.name)}${i === me ? ' (Ty)' : ''}${s.on ? '' : ' <span class="muted">[offline]</span>'}` : '<i>czekamy…</i>').join(' vs ')}</p>`;
@@ -99,7 +99,7 @@ function game(g, me) {
 }
 
 function layout(g, me, canAct) {
-  const W = 56, H = 34, rows = g.rows.length;
+  const W = 56, H = 68, rows = g.rows.length;
   const myW = g.players[me].wonders.filter(w => !w.built);
   let h = `<div class="layout" style="height:${rows * H + 40}px;width:${Math.max(...g.slots.map(s => s.x)) * W + 120}px">`;
   g.slots.forEach((s, i) => {

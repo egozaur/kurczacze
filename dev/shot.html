@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Kurczacze — podgląd / zrzuty</title>
+<!-- Narzędzie deweloperskie (tryb lokalny): w ramce prawdziwy ekran gry (gracz 1, klika UI), rywal = bot w tej stronie.
+     ?moves=N  zatrzymuje się po N ruchach (zrzuty różnych momentów gry), ?keep  bot gra dalej, a Ty klikasz sam.
+     http://localhost:8093/kurczacze/dev/shot.html?local=1&slot=9&moves=20 -->
+<style>html,body{margin:0;height:100%;overflow:hidden} iframe{border:0;width:100vw;height:100vh;display:block} #st{position:fixed;right:6px;bottom:4px;font:11px monospace;background:#fff8;padding:2px 6px;z-index:9}</style>
+</head>
+<body>
+<iframe id="f"></iframe><div id="st"></div>
+<script type="module">
+import * as KI from '../ki.js';
+const q = new URLSearchParams(location.search);
+const MOVES = Number(q.get('moves') || 0), KEEP = q.has('keep');
+const F = document.getElementById('f'), st = document.getElementById('st');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const d = () => F.contentDocument;
+const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now() - t < ms) { try { const v = fn(); if (v) return v; } catch (e) {} await sleep(60); } throw new Error('timeout'); };
+let seed = Number(q.get('seed') || 3); const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const any = a => a[Math.floor(rnd() * a.length)];
+let moves = 0;
+
+const { code } = await KI.createRoom();
+localStorage.setItem('kurczacze_nick', 'Kurczak');
+F.src = `../index.html?local=1&slot=1#${code}`;
+await until(() => d().querySelector('[data-act=enter]')).then(b => b.click());
+await until(() => d().body.innerText.includes('(Ty)'));
+let V = null;
+const bot = new KI.Game({ code, name: 'Kogut Zenek', onState: v => { V = v; } });
+await until(() => d().querySelector('[data-act=start]:not([disabled])')).then(b => b.click());
+await until(() => V && V.game);
+
+// Ruch bota (losowy legalny) i ruch gracza przez UI (zaznacz kartę → przycisk).
+function botMove(g) {
+  const me = V.seat;
+  if (g.pending) {
+    const opp = g.players[1 - me];
+    if (g.pending.type === 'token' || g.pending.type === 'grab') return bot.move({ a: 'token', token: g.board[0] });
+    if (g.pending.type === 'destroy') return bot.move({ a: 'destroy', card: opp.cards.find(id => KI.CARDS[id].color === 'yellow') });
+    return bot.move({ a: 'steal', card: opp.cards.find(id => ['brown', 'grey'].includes(KI.CARDS[id].color)) });
+  }
+  if (g.phase === 'draft') return bot.move({ a: 'pickWonder', wonder: any(g.draft.offer) });
+  const free = g.slots.map((s, i) => [s, i]).filter(([s]) => s.free && !s.taken);
+  const ok = free.filter(([s]) => s.price[me].ok);
+  if (ok.length && rnd() < 0.8) return bot.move({ a: 'build', slot: any(ok)[1] });
+  return bot.move({ a: 'discard', slot: any(free)[1] });
+}
+async function uiMove() {
+  const doc = d();
+  const opt = doc.querySelector('.overlay [data-act=token],.overlay [data-act=destroy],.overlay [data-act=steal]');
+  if (opt) return opt.click();
+  const pick = [...doc.querySelectorAll('[data-act=pick]')];
+  if (pick.length) return any(pick).click();
+  const slots = [...doc.querySelectorAll('.slot.free.mine')];
+  if (!slots.length) return;
+  any(slots).click();
+  await sleep(80);
+  const b = [...doc.querySelectorAll('#preview [data-act=build]:not([disabled]),#preview [data-act=wonder]:not([disabled])')];
+  const btn = b.length && rnd() < 0.85 ? any(b) : doc.querySelector('#preview [data-act=discard]');
+  btn && btn.click();
+}
+let lastKey = '', lastAt = 0;
+while ((!MOVES || moves < MOVES) && !(V.game && V.game.phase === 'end')) {
+  const g = V.game, key = g.turnNo + ':' + (g.pending ? 1 : 0) + ':' + g.actor + ':' + (g.draft ? g.draft.step : '') + ':' + g.log.length;
+  if (key !== lastKey || Date.now() - lastAt > 1500) {   // ponów, gdy ramka nie zdążyła się odświeżyć
+    lastKey = key; lastAt = Date.now();
+    if (g.actor === V.seat) botMove(g); else if (!KEEP) await uiMove(); else { await sleep(200); lastKey = ''; continue; }
+    moves++;
+  }
+  st.textContent = `ruchy: ${moves}`;
+  await sleep(120);
+}
+// Ostatni widok: zaznacz kartę, żeby było widać panel ruchu (jeśli teraz ruch gracza).
+await sleep(400);
+const s = d().querySelector('.slot.free.mine'); if (s && !q.has('nosel')) s.click();
+st.textContent = `GOTOWE ${moves}`;
+document.title = 'READY';
+if (KEEP) { while (true) { const g = V.game; if (g && g.actor === V.seat && g.phase !== 'end') botMove(g); await sleep(700); } }
+</script>
+</body>
+</html>

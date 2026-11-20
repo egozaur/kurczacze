@@ -164,9 +164,9 @@ export class Game {
 }
 
 // Link zaproszenia dla drugiego gracza.
-export function inviteUrl(code) {
+export function inviteUrl(code, page = '') {
   const base = location.href.replace(/[?#].*$/, '').replace(/[^/]*$/, '');
-  return base + (LOCAL ? '?local=1' : '') + '#' + code;
+  return base + page + (LOCAL ? '?local=1' : '') + '#' + code;
 }
 
 // Krótki opis kosztu karty/Cudu do podpowiedzi: „2 Ziarna + Słoma, Żwirek”.

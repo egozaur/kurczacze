@@ -8,7 +8,16 @@ Always respond in Polish (zawsze odpowiadaj po polsku). UI text and code comment
 
 The mechanics are the author's own variant of a known 2-player drafting genre; names, cards and texts are original. Keep the look PL3Y's own (black and gold like the lobby); don't imitate any commercial game's card art or iconography.
 
-**Status:** engine, server, protocol, local mode and tests are done. **The real UI (`index.html`) is not built yet**: the author will bring graphic ideas first. Until then `dev/stol.html` is a raw test table. After the UI: add the game to `GAMES` in `../egozaur.github.io/index.html`, add `/auth.js` and the PL3Y app meta tags (see the lobby CLAUDE.md).
+**Status:** engine, server, protocol, tests and the first version of the real UI are done. Not yet in the lobby carousel (`GAMES` in `../egozaur.github.io/index.html`) — add it when the author approves the look. Card illustrations don't exist yet (the striped „ILUSTRACJA” field is a deliberate placeholder).
+
+## Look (author's style sheet: „Ludowy druk z podwórza”)
+Flat cut-out colours, thick ink outline (`--ink #2E2118`), paper `#F6EBD3` inside cards, karton `#E9D6AE` for boards/backs, gold feather `#E8B83A`, grain coin `#D9A13B`. Category colours: brown `#7A5A3E`, grey `#6B6A63`, blue `#4A6C8C`, red `#9C4A3C`, green `#56734A`, yellow `#D2AE5E` (ink text on yellow), purple `#6E5878`; wonders = karton + gold, landscape. Fonts: Fraunces (names, numbers), Alegreya Sans (effects, UI), Alegreya italic (flavor). Card 44×68: category frame, cost column on the left (coin, then one box per resource, „lub” + dashed chain = free build), effect band on top (icons only), illustration field with the era egg (I/II/III), name band, text + flavor + id; a chain the card *gives* has a solid ring. Category colour only in frame, cost column and name band. Table background: light hay (generated seamless SVG tile in `app.js`), each player's cards sit on a wooden perch (`.perch`).
+
+## UI files
+- `index.html` + `app.js`: screens menu (create / join by code) → invite link `#CODE` asks for a nick → waiting room (code, copy link, seats, host picks the turn timer, start) → table. The table is a fixed 1920×1080 `#stage` scaled to the window (`fit()`): opponent's area on top, yours at the bottom (info panel, empire columns by colour with overlapping cards, 4 wonders), vertical war track on the left (your nest at the bottom, rooster moves up toward the opponent), the Era layout in the middle (cards overlap like on a real table: `STEP` 50 px shows the cost/effect band of covered cards; your price badge under every free card), right column = preview (hover any card/wonder/discovery; clicking a free card selects it and shows Zbuduj / Odrzuć / Wsuń pod Cud with prices), discoveries on the board, log. Overlays: pending choice (discovery / destroy / steal) and the end screen with the score table. „← Lobby” goes to `/` (the seat token stays, the same link resumes).
+- `cards.js`: `cardHTML(id, 'mini'|'full')`, `backHTML(era)`, `wonderHTML(id, size, extra, cls)`, `tokenHTML`, effect icons from the data (`effectHTML`). Card internals are sized in `cqw` (the card is a size container), so one template works at any width: set `--cw` (cards) / `--ww` (wonders) / `--kt` (tokens) on the parent. Don't use `cqw` on `.kc`/`.kw` themselves (it would resolve against the viewport).
+- `icons.js`: hand-drawn SVG icons per the style sheet (resources, coin with number, feather, spur, nest, wonder, 7 science symbols, 16 chain symbols, era egg).
+- `style.css`: colour tokens and all components.
 
 ## Rules (as implemented)
 - 3 Eras (Jajka, Pisklęcia, Koguta), 18 cards each laid out in rows (layouts in `DATA.rules.layouts`, rows alternate face-down/face-up, bottom row face-up). A card is free when no card of the row below covers it; in Era 3 the two middle rows of 4 cover only the card directly below.
@@ -31,6 +40,8 @@ The mechanics are the author's own variant of a known 2-player drafting genre; n
 ## Local testing
 - `powershell -ExecutionPolicy Bypass -File dev\serve.ps1` serves the parent folder (`Claude-roboczy`, so `/mafia/...` is reachable) on port 8093 (keep the script ASCII-only).
 - `?local=1`: `dev/local.js` (SharedWorker) runs the real `KiRoom`, so two tabs play without Cloudflare. `?slot=N` keeps a separate seat token per tab.
+- Game: `http://localhost:8093/kurczacze/?local=1&slot=1`, second player in another tab with `&slot=2` + the invite hash.
+- Look/screenshots: `dev/shot.html?local=1&slot=9&moves=N[&seed=S][&nosel][&keep]`: the real UI in an iframe vs a random bot; stops after N moves (no N = whole game) and sets `document.title = 'READY'`. `--screenshot` with virtual time gives blank shots here; capture through the DevTools protocol instead (wait for the READY title).
 - Test table: `http://localhost:8093/kurczacze/dev/stol.html?local=1` (second player: the invite link + `&slot=2`).
 - E2E: `http://localhost:8093/kurczacze/dev/e2e.html?games=3` (`&time=60` for the timer): two test tables click real buttons through whole games and compare results. Real-time headless Edge with `--enable-logging=stderr`, read `E2E RESULT`.
 - Engine/server unit tests: `../mafia/worker/test/run.html` (see the mafia CLAUDE.md).
