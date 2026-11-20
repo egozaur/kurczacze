@@ -6,6 +6,14 @@ import { DATA } from '/mafia/worker/src/kurczacze/data.js';
 
 export { DATA };
 export const API = 'https://pl3y-server.pl3y.workers.dev';
+
+// Token sesji PL3Y: wydaje go serwer po podaniu hasła w bramce (/auth.js), tu tylko go odczytujemy.
+// Do zapytań HTTP idzie nagłówkiem Authorization, do WebSocketu parametrem ?tok= (przeglądarka nie ustawi nagłówka).
+const plToken = () => { try { const t = localStorage.getItem('pl3y_token'); return t && Number(localStorage.getItem('pl3y_token_exp')) > Date.now() ? t : ''; } catch (e) { return ''; } };
+const authHead = (h = {}) => { const t = plToken(); return t ? { ...h, Authorization: 'Bearer ' + t } : h; };
+const wsTok = () => { const t = plToken(); return t ? '?tok=' + encodeURIComponent(t) : ''; };
+// Serwer odrzucił sesję (401): pokaż bramkę hasła.
+const onAuthFail = r => { if (r.status === 401 && window.PL3Y && window.PL3Y.expired) window.PL3Y.expired(); };
 export const LOCAL = new URLSearchParams(location.search).has('local');
 export const CARDS = Object.fromEntries(DATA.cards.map(c => [c.id, c]));
 export const WONDERS = Object.fromEntries(DATA.wonders.map(w => [w.id, w]));
@@ -65,7 +73,8 @@ export async function createRoom() {
   }
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
   try {
-    const r = await fetch(API + '/api/ki/rooms', { method: 'POST', signal: ctl.signal });
+    const r = await fetch(API + '/api/ki/rooms', { method: 'POST', signal: ctl.signal, headers: authHead() });
+    onAuthFail(r);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return await r.json();
   } finally { clearTimeout(t); }
@@ -95,7 +104,7 @@ export class Game {
     if (this.stopped) return;
     this.setStatus(this.retry ? 'reconnecting' : 'connecting');
     let ws;
-    try { ws = LOCAL ? new LocalSocket(this.code) : new WebSocket(API.replace(/^http/, 'ws') + '/api/ki/rooms/' + encodeURIComponent(this.code) + '/ws'); }
+    try { ws = LOCAL ? new LocalSocket(this.code) : new WebSocket(API.replace(/^http/, 'ws') + '/api/ki/rooms/' + encodeURIComponent(this.code) + '/ws' + wsTok()); }
     catch (e) { return this.later(); }
     this.ws = ws;
     ws.onopen = () => { this.retry = 0; this.lastMsg = Date.now(); this.raw(this.hello()); };
