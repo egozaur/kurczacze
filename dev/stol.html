@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kurczacze Imperium — stół testowy</title>
+<!-- Narzędzie deweloperskie: surowy stół bez grafiki, do sprawdzania zasad i protokołu. Docelowy wygląd będzie w index.html. -->
+<style>
+  body { font: 14px/1.45 system-ui, sans-serif; margin: 16px; background: #fff; color: #111; }
+  button { font: inherit; margin: 2px; }
+  button:disabled { opacity: .45; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .box { border: 1px solid #bbb; padding: 8px 10px; border-radius: 6px; min-width: 260px; }
+  .me { outline: 2px solid #2a7; }
+  .tag { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 12px; margin: 1px; border: 1px solid #0002; }
+  .brown { background: #d9b48c } .grey { background: #ccc } .blue { background: #9cd } .red { background: #f99 }
+  .green { background: #9d9 } .yellow { background: #fe8 } .purple { background: #c9e }
+  .layout { position: relative; }
+  .slot { position: absolute; width: 104px; height: 58px; border: 1px solid #888; border-radius: 4px; font-size: 11px; padding: 2px; box-sizing: border-box; overflow: hidden; }
+  .slot.down { background: repeating-linear-gradient(45deg, #ddd, #ddd 4px, #eee 4px, #eee 8px); }
+  .slot.taken { opacity: .12; }
+  .slot.free { border: 2px solid #000; }
+  .log { font-size: 12px; max-height: 220px; overflow: auto; }
+  .muted { color: #777 }
+</style>
+</head>
+<body>
+<h1>Kurczacze Imperium — stół testowy</h1>
+<div id="app">…</div>
+<script type="module">
+import * as KI from '../ki.js';
+const $app = document.getElementById('app');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let G = null, V = null, err = '', status = '';
+
+const code = () => location.hash.slice(1).toUpperCase();
+function open() {
+  if (G) G.stop();
+  G = null; V = null;
+  if (!code()) return render();
+  G = new KI.Game({ code: code(), name: KI.nick.get() || 'Gracz', onState: v => { V = v; err = ''; render(); },
+    onError: m => { err = m.err; render(); }, onStatus: s => { status = s; render(); } });
+}
+addEventListener('hashchange', open);
+
+const cardTag = id => { const c = KI.CARDS[id]; return `<span class="tag ${c.color}" title="${esc(c.text)}">${esc(c.name)}</span>`; };
+const wName = id => esc(KI.WONDERS[id].name);
+const res = o => Object.entries(o).filter(([, n]) => n).map(([r, n]) => `${KI.RES[r]}×${n}`).join(', ') || '—';
+
+function render() {
+  if (!G) {
+    $app.innerHTML = `<p>Nick: <input id="nick" value="${esc(KI.nick.get())}" maxlength="16">
+      <button data-act="create">Utwórz pokój</button>
+      <input id="code" placeholder="KOD" size="6"> <button data-act="join">Dołącz</button></p>
+      <p class="muted">${KI.LOCAL ? 'Tryb lokalny (?local=1): drugi gracz = druga karta z tym samym linkiem i ?slot=2.' : 'Serwer produkcyjny.'}</p>`;
+    return;
+  }
+  if (!V) { $app.innerHTML = `<p>Łączenie… (${esc(status)}) ${esc(err)}</p>`; return; }
+  const g = V.game, me = V.seat;
+  let h = `<p>Pokój <b>${esc(V.code)}</b> · zaproszenie: <code>${esc(KI.inviteUrl(V.code))}${KI.LOCAL ? '&slot=2' : ''}</code> · ${esc(status)}
+    ${V.left ? ` · ⏱ ${Math.ceil(V.left / 1000)} s` : ''} <button data-act="leave">Wyjdź</button></p>`;
+  if (err) h += `<p style="color:#c00">${esc(err)}</p>`;
+  h += `<p>Gracze: ${V.seats.map((s, i) => s ? `${esc(s.name)}${i === me ? ' (Ty)' : ''}${s.on ? '' : ' <span class="muted">[offline]</span>'}` : '<i>czekamy…</i>').join(' vs ')}</p>`;
+  if (!g || g.phase === 'end') {
+    if (me === 0) h += `<p>Limit tury: ${KI.TIMES.map(t => `<button data-act="time" data-v="${t}" ${V.time === t ? 'disabled' : ''}>${t ? t + ' s' : 'brak'}</button>`).join('')}
+      <button data-act="start" ${V.seats[1] ? '' : 'disabled'}>${g ? 'Rewanż' : 'Start'}</button></p>`;
+    else if (g) h += `<p><button data-act="rematch">Rewanż</button></p>`;
+  }
+  if (g) h += game(g, me);
+  $app.innerHTML = h;
+}
+
+function game(g, me) {
+  const my = g.actor === me;
+  let h = `<p><b>${g.phase === 'draft' ? 'Wybór Cudów' : g.phase === 'end' ? 'Koniec gry' : 'Era ' + g.era}</b> · ruch: ${g.actor == null ? '—' : esc(g.players[g.actor].name)}${my ? ' <b>(Ty)</b>' : ''}
+    · Kogut: ${g.track} (dodatni = w stronę ${esc(g.players[1].name)}) · Cudów do zbudowania: ${g.wondersLeft}
+    · Odkrycia: ${g.board.map(t => `<span class="tag" title="${esc(KI.TOKENS[t].text)}">${esc(KI.TOKENS[t].name)}</span>`).join('')}</p>`;
+  if (g.phase === 'end') {
+    const w = g.winner;
+    h += `<p><b>${w.p == null ? 'Remis' : esc(g.players[w.p].name) + ' wygrywa'}</b> (${w.how})</p>`;
+    if (g.score) h += `<table border="1" cellpadding="4"><tr><th></th>${Object.keys(g.score[0]).map(k => `<th>${k}</th>`).join('')}</tr>
+      ${g.score.map((sc, i) => `<tr><td>${esc(g.players[i].name)}</td>${Object.values(sc).map(x => `<td>${x}</td>`).join('')}</tr>`).join('')}</table>`;
+  }
+  if (g.pending && g.pending.p === me) {
+    const opp = g.players[1 - me];
+    h += '<p><b>Wybierz:</b> ';
+    if (g.pending.type === 'token' || g.pending.type === 'grab') h += g.board.map(t => `<button data-act="token" data-v="${t}">${esc(KI.TOKENS[t].name)}</button>`).join('');
+    if (g.pending.type === 'destroy') h += opp.cards.filter(id => KI.CARDS[id].color === 'yellow').map(id => `<button data-act="destroy" data-v="${id}">Zniszcz ${esc(KI.CARDS[id].name)}</button>`).join('');
+    if (g.pending.type === 'steal') h += opp.cards.filter(id => ['brown', 'grey'].includes(KI.CARDS[id].color)).map(id => `<button data-act="steal" data-v="${id}">Przejmij ${esc(KI.CARDS[id].name)}</button>`).join('');
+    h += '</p>';
+  }
+  if (g.phase === 'draft') {
+    h += `<p>Oferta: ${g.draft.offer.map(w => `<button data-act="pick" data-v="${w}" ${my ? '' : 'disabled'} title="${esc(KI.WONDERS[w].text)}">${wName(w)}</button>`).join('')}</p>`;
+  }
+  if (g.slots) h += layout(g, me, my && !g.pending && g.phase === 'play');
+  h += `<div class="row">${g.players.map((p, i) => player(g, p, i, me)).join('')}
+    <div class="box"><b>Log</b><div class="log">${g.log.slice().reverse().map(l => `<div>${esc(l.text)}</div>`).join('')}</div></div></div>`;
+  return h;
+}
+
+function layout(g, me, canAct) {
+  const W = 56, H = 34, rows = g.rows.length;
+  const myW = g.players[me].wonders.filter(w => !w.built);
+  let h = `<div class="layout" style="height:${rows * H + 40}px;width:${Math.max(...g.slots.map(s => s.x)) * W + 120}px">`;
+  g.slots.forEach((s, i) => {
+    const cls = s.taken ? 'taken' : s.up ? (s.free ? 'free' : '') : 'down';
+    let inner = '';
+    if (s.id) {
+      const c = KI.CARDS[s.id];
+      inner = `<span class="tag ${c.color}" title="${esc(c.text)}\n${esc(KI.costText(c))}">${esc(c.name)}</span>`;
+      if (s.free && canAct) {
+        const pr = s.price[me];
+        inner += `<br><button data-act="build" data-v="${i}" ${pr.ok ? '' : 'disabled'}>${pr.chain ? 'Ślad' : pr.coins + '🌾'}</button><button data-act="discard" data-v="${i}">+${g.discardGain[me]}</button>`;
+        if (g.wondersLeft > 0) inner += myW.map(w => { const wp = g.wonderPrice[me][w.id]; return `<button data-act="wonder" data-v="${i}" data-w="${w.id}" ${wp.ok ? '' : 'disabled'} title="${wName(w.id)} (${wp.coins})">C${wp.coins}</button>`; }).join('');
+      }
+    }
+    h += `<div class="slot ${cls}" style="left:${s.x * W}px;top:${s.row * H}px">${inner}</div>`;
+  });
+  return h + '</div>';
+}
+
+function player(g, p, i, me) {
+  const byColor = {};
+  for (const id of p.cards) (byColor[KI.CARDS[id].color] ||= []).push(id);
+  return `<div class="box ${i === me ? 'me' : ''}"><b>${esc(p.name)}</b> · 🌾 ${p.coins} · Pióra ≈ ${p.vp}
+    <div>Produkcja: ${res(p.prod)}${p.choice.length ? ' · do wyboru: ' + p.choice.map(c => c.split('').map(r => KI.RES[r]).join('/')).join(', ') : ''}</div>
+    <div>Ceny w banku: ${Object.entries(p.price).map(([r, n]) => `${KI.RES[r]} ${n}`).join(', ')}</div>
+    <div>Nauka: ${p.syms.map(esc).join(', ') || '—'}</div>
+    <div>Odkrycia: ${p.tokens.map(t => esc(KI.TOKENS[t].name)).join(', ') || '—'}</div>
+    <div>Cuda: ${p.wonders.map(w => `${w.built ? '✔' : '○'} ${wName(w.id)}`).join(', ')}</div>
+    <div>${Object.values(byColor).map(ids => ids.map(cardTag).join('')).join('<br>')}</div></div>`;
+}
+
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act, v = b.dataset.v;
+  if (a === 'create') {
+    KI.nick.set(document.getElementById('nick').value);
+    try { const r = await KI.createRoom(); location.hash = r.code; } catch (er) { alert('Nie udało się utworzyć pokoju: ' + er.message); }
+  } else if (a === 'join') { KI.nick.set(document.getElementById('nick').value); location.hash = document.getElementById('code').value.trim().toUpperCase(); }
+  else if (a === 'leave') { G.leave(); location.hash = ''; }
+  else if (a === 'time') G.setTime(Number(v));
+  else if (a === 'start') G.start();
+  else if (a === 'rematch') G.rematch();
+  else if (a === 'pick') G.move({ a: 'pickWonder', wonder: v });
+  else if (a === 'build') G.move({ a: 'build', slot: Number(v) });
+  else if (a === 'discard') G.move({ a: 'discard', slot: Number(v) });
+  else if (a === 'wonder') G.move({ a: 'wonder', slot: Number(v), wonder: b.dataset.w });
+  else if (a === 'token') G.move({ a: 'token', token: v });
+  else if (a === 'destroy') G.move({ a: 'destroy', card: v });
+  else if (a === 'steal') G.move({ a: 'steal', card: v });
+});
+setInterval(() => { if (V && V.left) { V.left = Math.max(0, V.left - 1000); render(); } }, 1000);
+open();
+</script>
+</body>
+</html>

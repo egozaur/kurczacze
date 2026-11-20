@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Kurczacze Imperium — E2E</title>
+<!-- Test end-to-end w trybie lokalnym: dwa stoły testowe (iframe, ?slot=1/2) klikają prawdziwe przyciski aż do końca gry.
+     Uruchom dev/serve.ps1 i otwórz http://localhost:8093/kurczacze/dev/e2e.html (?games=N, ?time=60 włącza limit tury).
+     Wynik w konsoli i w <pre>: „E2E RESULT: PASS|FAIL”. -->
+<style>body{font:13px monospace;margin:8px} iframe{width:49%;height:520px;border:1px solid #999} pre{max-height:200px;overflow:auto}</style>
+</head>
+<body>
+<pre id="out"></pre>
+<iframe id="a"></iframe><iframe id="b"></iframe>
+<script>
+const q = new URLSearchParams(location.search);
+const GAMES = Number(q.get('games') || 2), TIME = Number(q.get('time') || 0);
+const out = document.getElementById('out');
+const say = s => { out.textContent += s + '\n'; console.log(s); };
+const A = document.getElementById('a'), B = document.getElementById('b');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const doc = f => f.contentDocument;
+const text = f => (doc(f) && doc(f).body ? doc(f).body.innerText : '');
+async function until(fn, ms = 15000, what = '') {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) { try { const v = fn(); if (v) return v; } catch (e) {} await sleep(50); }
+  throw new Error('Przekroczony czas: ' + what);
+}
+function load(f, src) { return new Promise(r => { f.onload = () => r(); f.src = src; }); }
+const btn = (f, sel) => [...doc(f).querySelectorAll(sel)].filter(b => !b.disabled);
+let seed = 12345;
+const rnd = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed / 4294967296; };
+const any = arr => arr[Math.floor(rnd() * arr.length)];
+
+// Jeden ruch, jeśli ramka ma coś do kliknięcia. Kolejność: wybór (Odkrycie/zniszczenie/przejęcie), Cud z oferty, budowa, Cud, odrzucenie.
+function act(f) {
+  const pend = btn(f, '[data-act=token],[data-act=destroy],[data-act=steal]');
+  if (pend.length) return any(pend).click(), 1;
+  const pick = btn(f, '[data-act=pick]');
+  if (pick.length) return any(pick).click(), 1;
+  const build = btn(f, '[data-act=build]'), wonder = btn(f, '[data-act=wonder]'), disc = btn(f, '[data-act=discard]');
+  if (!disc.length) return 0;
+  const r = rnd();
+  if (wonder.length && r < 0.2) return any(wonder).click(), 1;
+  if (build.length && r < 0.85) return any(build).click(), 1;
+  return any(disc).click(), 1;
+}
+
+(async () => {
+  try {
+    localStorage.setItem('kurczacze_nick', 'Robot');
+    await load(A, '../dev/stol.html?local=1&slot=1');
+    await until(() => doc(A).querySelector('[data-act=create]'), 15000, 'menu');
+    doc(A).getElementById('nick').value = 'Ala';
+    doc(A).querySelector('[data-act=create]').click();
+    const code = await until(() => A.contentWindow.location.hash.slice(1), 15000, 'kod pokoju');
+    say('Pokój ' + code);
+    localStorage.setItem('kurczacze_nick', 'Ola');
+    await load(B, `../dev/stol.html?local=1&slot=2#${code}`);
+    await until(() => /Ala.*vs.*Ola/.test(text(A)), 15000, 'dołączenie drugiego gracza');
+    if (TIME) { await until(() => btn(A, `[data-act=time][data-v="${TIME}"]`)[0], 5000, 'limit').then(b => b.click()); await until(() => btn(A, '[data-act=start]').length && !btn(A, `[data-act=time][data-v="${TIME}"]`).length, 5000, 'limit ustawiony'); }
+    for (let g = 1; g <= GAMES; g++) {
+      (await until(() => btn(A, '[data-act=start]')[0], 15000, 'start'))?.click();
+      await until(() => /Wybór Cudów/.test(text(A)) && /Wybór Cudów/.test(text(B)), 15000, 'faza wyboru Cudów');
+      let moves = 0, last = { a: '', b: '' }, lastAt = { a: 0, b: 0 };
+      const t0 = Date.now();
+      while (!(/Koniec gry/.test(text(A)) && /Koniec gry/.test(text(B)))) {
+        if (Date.now() - t0 > 180000) throw new Error('Gra trwa za długo');
+        for (const [k, f] of [['a', A], ['b', B]]) {
+          const snap = doc(f).getElementById('app').innerHTML;
+          if (snap === last[k] && Date.now() - lastAt[k] < 2000) continue;   // czekaj na odpowiedź serwera po kliknięciu
+          if (/color:#c00/.test(snap)) throw new Error('Błąd ruchu: ' + doc(f).querySelector('[style*="c00"]').innerText);
+          if (act(f)) { moves++; last[k] = snap; lastAt[k] = Date.now(); }
+        }
+        await sleep(30);
+      }
+      const res = f => (doc(f).querySelector('table') || {}).innerText || '';
+      const winA = text(A).match(/(Remis|\S+ wygrywa) \((\w+)\)/), winB = text(B).match(/(Remis|\S+ wygrywa) \((\w+)\)/);
+      if (!winA || !winB || winA[0] !== winB[0]) throw new Error('Gracze widzą różne wyniki');
+      if (res(A) !== res(B)) throw new Error('Różne tabele punktów');
+      say(`Gra ${g}: ${winA[0]}, ${moves} ruchów, ${Math.round((Date.now() - t0) / 1000)} s`);
+    }
+    say('E2E RESULT: PASS');
+  } catch (e) {
+    say('E2E RESULT: FAIL ' + (e && e.stack || e));
+  }
+})();
+</script>
+</body>
+</html>
