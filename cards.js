@@ -2,7 +2,7 @@
 // surowce, „lub” + przerywany Ślad), pasek efektu, pole ilustracji z jajkiem Ery, pasek nazwy, tekst i opis klimatyczny.
 // Rozmiar karty ustala rodzic (szerokość); wnętrze skaluje się jednostkami cqw.
 import { CARDS, WONDERS, TOKENS, RES } from './ki.js';
-import { icon, coin, sym, chain, eraEgg } from './icons.js';
+import { icon, coin, sym, chain, eraEgg, pic, artPic } from './icons.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 export { esc };
@@ -50,7 +50,7 @@ export function effectHTML(c) {
 }
 
 // Kolumna kosztu: moneta z Ziarnami, potem surowce (każda sztuka osobno), „lub” + przerywany Ślad.
-function costHTML(x) {
+export function costHTML(x) {
   let h = '';
   if (x.coins) h += coin(x.coins);
   for (const r of (x.cost || '')) h += `<span class="kc-box">${res(r)}</span>`;
@@ -66,27 +66,31 @@ export function cardHTML(id, size = 'mini', extra = '') {
   return `<div class="kc kc-${c.color} kc-${size}" data-card="${id}" ${extra}><div class="kc-in">
     <div class="kc-cost">${costHTML(c)}</div>
     <div class="kc-eff">${effectHTML(c)}</div>
-    <div class="kc-art"><span class="kc-ill">Ilustracja</span>${eraEgg(c.era)}${size === 'mini' ? give : ''}</div>
+    <div class="kc-art">${art(id)}${eraEgg(c.era)}${size === 'mini' ? give : ''}</div>
     <div class="kc-name"><span>${esc(c.name)}</span></div>
     ${size === 'full' ? `<div class="kc-text"><b>${esc(c.text)}</b><i>${esc(c.flavor)}</i>
       <small>${esc(c.id)} · ${esc(era)}</small>${c.chain_give ? `<span class="kc-givel">${esc(c.chain_give)}${chain(c.chain_give)}</span>` : ''}</div>` : ''}
   </div></div>`;
 }
 
-// Rewers karty w układzie (zakryta): karton z jajkiem Ery.
+// Ilustracja autora (img/<id>.png) na paskowanym tle pola ilustracji.
+const art = id => `<img class="kc-pic" src="${artPic(id)}" alt="" draggable="false" loading="lazy">`;
+
+// Rewers karty w układzie (zakryta): karton, cyfra Ery w kółku u góry (widać ją spod kart niżej), emblemat kurnika.
 export function backHTML(era, extra = '') {
-  return `<div class="kc kc-back" ${extra}><div class="kc-in">${eraEgg(era)}<span>Kurczacze<br>Imperium</span></div></div>`;
+  return `<div class="kc kc-back" ${extra}><div class="kc-in"><span class="kb-era">${['', 'I', 'II', 'III'][era] || ''}</span>
+    <img class="kb-emb" src="${pic('ui/emblem')}" alt="" draggable="false"></div></div>`;
 }
 
-// Kurzy Cud: poziomy, karton + złoto. state: '' | 'built' | 'off' (do pudełka).
+// Kurzy Cud wg wzoru autora (cudnowy.webp): koszt | ilustracja z nazwą na wstędze | efekt. Jeden wygląd w każdym rozmiarze
+// (szerokość z --ww). cls: '' | 'built' | 'cant'. Pełny tekst efektu pokazuje podgląd obok.
 export function wonderHTML(wid, size = 'mini', extra = '', cls = '') {
   const w = WONDERS[wid];
-  return `<div class="kw kw-${size} ${cls}" data-wonder="${wid}" ${extra}><div class="kw-in">
-    <div class="kc-cost">${costHTML({ cost: w.cost })}</div>
-    <div class="kc-eff">${effectHTML(w)}</div>
-    <div class="kc-art"><span class="kc-ill">Ilustracja</span></div>
-    <div class="kc-name"><span>${esc(w.name)}</span></div>
-    ${size === 'full' ? `<div class="kc-text"><b>${esc(w.text)}</b><i>${esc(w.flavor)}</i><small>${esc(w.id)} · Kurzy Cud</small></div>` : ''}
+  const n = (w.cost || '').length;
+  return `<div class="kw ${cls}" data-wonder="${wid}" ${extra}><div class="kw-in">
+    <div class="kw-cost ${n >= 5 ? 'n5' : ''}">${costHTML({ cost: w.cost })}</div>
+    <div class="kw-art">${art(wid)}<div class="kw-name"><span>${esc(w.name)}</span></div></div>
+    <div class="kw-eff">${effectHTML(w)}</div>
   </div><span class="kw-stamp">Zbudowany</span></div>`;
 }
 
@@ -100,7 +104,8 @@ export function tokenHTML(tid, extra = '') {
   const t = TOKENS[tid];
   let ic = TOKEN_ICON[t.special] ? TOKEN_ICON[t.special]() : '';
   if (!ic) ic = (t.gain ? coin('+' + t.gain) : '') + (t.shields ? spurs(t.shields) : '') + (t.vp ? vp(t.vp) : '');
-  return `<div class="kt" data-token="${tid}" title="${esc(t.name)}: ${esc(t.text)}" ${extra}><div class="kt-disc">${ic}</div><span class="kt-name">${esc(t.name)}</span></div>`;
+  // Ilustracja wypełnia żeton, efekt w małej plakietce na dole.
+  return `<div class="kt" data-token="${tid}" title="${esc(t.name)}: ${esc(t.text)}" ${extra}><div class="kt-disc" style="background-image:url('${artPic(tid)}')"><span class="kt-eff">${ic}</span></div><span class="kt-name">${esc(t.name)}</span></div>`;
 }
 export function tokenFullHTML(tid) {
   const t = TOKENS[tid];

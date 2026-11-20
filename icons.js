@@ -47,19 +47,37 @@ const P = {
 };
 export const SYMBOLS = ['Lotka i Atrament', 'Koło Grzebaka', 'Ucieracz Ziarna', 'Grzęda', 'Zegar Piania', 'Jajo Wszechświata', 'Waga Ziarna'];
 
-export function icon(name, cls = '') { return P[name] ? svg(P[name], cls) : ''; }
+// Ilustracje autora (folder img/): karty, Cuda, Odkrycia po id, surowce R-x, symbole S-0n. Adres liczony od tego modułu,
+// więc działa też ze stron w dev/.
+const IMG = new URL('img/', import.meta.url).href;
+export const pic = id => `${IMG}${id}.png`;
+// Ilustracje kart, Cudów i Odkryć (JPG wycięte z arkuszy autora).
+export const artPic = id => `${IMG}${id}.jpg`;
+const RES_PIC = { S: 'R-S', B: 'R-B', Z: 'R-Z', K: 'R-K', L: 'R-L', coin: 'ui/i-coin', feather: 'ui/i-feather', spur: 'ui/i-spur' };
+const LABEL = { S: 'Słoma', B: 'Błoto', Z: 'Żwirek', K: 'Skorupki', L: 'Łuski kukurydzy', coin: 'Ziarna', feather: 'Złote Pióra', spur: 'Ostroga', wonder: 'Kurzy Cud' };
+const tip = name => LABEL[name] ? ` title="${LABEL[name]}"` : '';
+
+export function icon(name, cls = '') {
+  if (RES_PIC[name]) return `<img class="ico pic ${cls}" src="${pic(RES_PIC[name])}" alt="${LABEL[name] || ''}"${tip(name)} draggable="false">`;
+  return P[name] ? svg((LABEL[name] ? `<title>${LABEL[name]}</title>` : '') + P[name], cls) : '';
+}
 
 // Moneta z liczbą (koszt/zysk w Ziarnach).
 export function coin(n, cls = '') {
   const t = String(n);
-  return svg(`<circle cx="32" cy="32" r="27" fill="#D9A13B" ${st}/><circle cx="32" cy="32" r="20" fill="#E8B83A" stroke="#A9741F" stroke-width="2.5"/>
+  // Grafika monety autora, środek przykryty jasnym kółkiem, żeby cyfra była czytelna.
+  return svg(`<title>Ziarna: ${t}</title><image href="${pic('ui/i-coin')}" x="1" y="1" width="62" height="62"/><circle cx="32" cy="32" r="18.5" fill="#F7DC8A" stroke="#A9741F" stroke-width="2"/>
     <text x="32" y="${t.length > 2 ? 40 : 43}" text-anchor="middle" font-family="Fraunces, serif" font-weight="900" font-size="${t.length > 2 ? 22 : t.length > 1 ? 27 : 32}" fill="${INK}">${t}</text>`, 'coin');
 }
 // Symbol Dziobologii w kółku (na karcie zielonej i na planszy).
-export function sym(name, cls = '') { return svg(`<circle cx="32" cy="32" r="29" fill="#F6EBD3" ${st}/><g transform="translate(9 9) scale(.72)">${P[name] || ''}</g>`, 'sym ' + cls); }
+export function sym(name, cls = '') {
+  const i = SYMBOLS.indexOf(name);
+  if (i >= 0) return `<span class="ico sym symp ${cls}" title="Symbol: ${name}" style="background-image:url('${pic('S-0' + (i + 1))}')"></span>`;
+  return svg(`<circle cx="32" cy="32" r="29" fill="#F6EBD3" ${st}/><g transform="translate(9 9) scale(.72)">${P[name] || ''}</g>`, 'sym ' + cls);
+}
 // Ślad Pazurka w kółku: ciągła obwódka = karta go zostawia, przerywana = buduje się z nim za darmo.
 export function chain(name, from = false, cls = '') {
-  return svg(`<circle cx="32" cy="32" r="29" fill="#F6EBD3" stroke="${INK}" stroke-width="${from ? 3.5 : 3}" ${from ? 'stroke-dasharray="6 5"' : ''}/><g transform="translate(13 13) scale(.6)">${P[name] || ''}</g>`, 'chain ' + cls);
+  return svg(`<title>${from ? 'Za darmo ze Śladem: ' : 'Ślad Pazurka: '}${name}</title><circle cx="32" cy="32" r="29" fill="#F6EBD3" stroke="${INK}" stroke-width="${from ? 3.5 : 3}" ${from ? 'stroke-dasharray="6 5"' : ''}/><g transform="translate(13 13) scale(.6)">${P[name] || ''}</g>`, 'chain ' + cls);
 }
 // Jajko Ery z cyfrą rzymską.
 export function eraEgg(era, cls = '') {
