@@ -211,10 +211,15 @@ function renderPreview() {
   const box = $('preview'); if (!box || !V || !V.game) return;
   const g = V.game, me = V.seat;
   const hv = ui.hover;
+  box.className = 'preview panel';
+  // Sam podgląd (bez przycisków ruchu): karta/Cud wypełnia całe pole.
   if (hv && hv.t !== 'slot') {
-    box.innerHTML = hv.t === 'card' ? `<div class="pv">${cardHTML(hv.id, 'full')}</div><div class="acts">${ownerNote(g, hv.id)}</div>`
-      : hv.t === 'wonder' ? `<div class="pv" style="align-self:center">${wonderHTML(hv.id, 'full')}</div>`
-      : `<div class="acts" style="align-items:center;justify-content:center">${tokenFullHTML(hv.id)}</div>`;
+    const note = hv.t === 'card' ? ownerNote(g, hv.id) : '';
+    box.classList.add('solo');
+    if (note) box.classList.add('note');
+    box.innerHTML = hv.t === 'card' ? `<div class="pv">${cardHTML(hv.id, 'full')}</div>${note}`
+      : hv.t === 'wonder' ? `<div class="pv">${wonderHTML(hv.id, 'full')}</div>`
+      : tokenFullHTML(hv.id);
     return;
   }
   const i = ui.sel;

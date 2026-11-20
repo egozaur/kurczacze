@@ -134,6 +134,11 @@ input.field { font: 700 20px var(--f-text); padding: 10px 14px; border: 3px soli
 .preview .acts h4 { margin: 6px 0 0; font: 900 17px var(--f-title); }
 .preview .why { font-size: 14px; color: #6b5640; }
 .preview .empty { margin: auto; text-align: center; color: #7a6650; font-weight: 700; }
+/* sam podgląd (najechanie): karta/Cud na całe pole (wnętrze 444×522) */
+.preview.solo { flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.preview.solo .pv { --cw: 332px; }
+.preview.solo.note .pv { --cw: 314px; }
+.preview.solo .pv .kw { --ww: 440px; }
 .board-tokens { flex: none; padding: 10px 14px; }
 .board-tokens .row { display: flex; gap: 10px; align-items: flex-start; }
 .board-tokens .kt { --kt: 66px; }
@@ -163,7 +168,8 @@ input.field { font: 700 20px var(--f-text); padding: 10px 14px; border: 3px soli
 .kc-red { --cat: var(--red); --tint: #EBD3CC; } .kc-green { --cat: var(--green); --tint: #D6E0CF; } .kc-yellow { --cat: var(--yellow); --tint: #F1E5C2; } .kc-purple { --cat: var(--purple); --tint: #DED6E3; }
 .kc-in { position: absolute; inset: 3.5cqw; border: max(1.5px, 1.4cqw) solid var(--ink); border-radius: 5cqw; background: var(--paper); overflow: hidden;
   display: grid; grid-template-columns: 19cqw 1fr; grid-template-rows: 30cqw 1fr 26cqw; }
-.kc-full .kc-in { grid-template-rows: 26cqw 1fr 14cqw 36cqw; }
+.kc-full .kc-in { grid-template-rows: 26cqw 1fr minmax(14cqw, auto) minmax(36cqw, auto); }
+.kc-full .kc-name { padding: 1.5cqw 2cqw; }
 .kc-cost { grid-row: 1 / 3; grid-column: 1; background: var(--cat); border-right: max(1.5px, 1.2cqw) solid var(--ink); display: flex; flex-direction: column; align-items: center; gap: 1.6cqw; padding-top: 2cqw; }
 .kc-cost .coin { width: 14cqw; height: 14cqw; }
 .kc-box { width: 14cqw; height: 14cqw; border: max(1px, .9cqw) solid var(--ink); border-radius: 3cqw; background: var(--paper); display: grid; place-items: center; }
@@ -187,7 +193,7 @@ input.field { font: 700 20px var(--f-text); padding: 10px 14px; border: 3px soli
 .kc-give { position: absolute; right: 2cqw; bottom: 2cqw; } .kc-give .chain { width: 17cqw; height: 17cqw; }
 .kc-name { grid-column: 1 / 3; background: var(--cat); border-top: max(1.5px, 1.2cqw) solid var(--ink); display: grid; place-items: center; padding: 0 2cqw; overflow: hidden; }
 .kc-name span { font: 800 9cqw/1.02 var(--f-title); color: #fff; text-align: center; }
-.kc-mini .kc-name span { font-size: 12cqw; line-height: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.kc-mini .kc-name span { font-size: 11cqw; line-height: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .kc-yellow .kc-name span { color: var(--ink); }
 .kc-text { grid-column: 1 / 3; border-top: max(1.5px, 1.2cqw) solid var(--ink); padding: 2.5cqw 4cqw; display: flex; flex-direction: column; gap: 1.6cqw; text-align: center; position: relative; }
 .kc-text b { font: 700 5.6cqw/1.2 var(--f-text); }
@@ -199,15 +205,24 @@ input.field { font: 700 20px var(--f-text); padding: 10px 14px; border: 3px soli
 .kc-back .kc-in { background: repeating-linear-gradient(45deg, var(--karton) 0 5cqw, #E1CA9C 5cqw 10cqw); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 6cqw; gap: 5cqw; }
 .kc-back .egg { width: 34cqw; height: 40cqw; }
 .kc-back span { font: 900 9cqw/1.05 var(--f-title); text-align: center; }
+/* w układzie rewers jest zawsze przykryty poniżej jajka: napis prześwitywał w szparach jako „cz”, „er” */
+.lay .kc-back span { display: none; }
 
 /* ---------- Kurzy Cud (poziomy, karton + złoto) ---------- */
 .kw { width: var(--ww, 176px); aspect-ratio: 68 / 44; container-type: inline-size; border-radius: calc(var(--ww, 176px) * .05); background: var(--gold); border: max(2px, calc(var(--ww, 176px) * .011)) solid var(--ink); position: relative; box-shadow: 0 calc(var(--ww, 176px) * .02) 0 rgba(46,33,24,.35); transition: transform .12s; }
 .kw-in { position: absolute; inset: 2.4cqw; border: max(1.5px, .9cqw) solid var(--ink); border-radius: 3.5cqw; background: var(--karton); overflow: hidden;
   display: grid; grid-template-columns: 13cqw 1fr; grid-template-rows: 17cqw 1fr 11cqw; --cat: var(--gold); --tint: #F3E2B0; }
-.kw-full .kw-in { grid-template-rows: 15cqw 1fr 9cqw 18cqw; }
+.kw-full .kw-in { grid-template-rows: 15cqw 1fr minmax(9cqw, auto) auto; }
 .kw .kc-cost { gap: 1cqw; padding-top: 1.2cqw; border-right-width: max(1.5px, .8cqw); }
 .kw .kc-cost .coin, .kw .kc-box { width: 9cqw; height: 9cqw; }
 .kw .kc-box .ico { width: 7cqw; height: 7cqw; }
+/* Cud kosztuje do 5 surowców: w mini mniejsze kratki, w pełnym kolumna kosztu idzie przez całą wysokość */
+.kw-mini .kc-cost { gap: .7cqw; }
+.kw-mini .kc-cost .coin, .kw-mini .kc-box { width: 7.8cqw; height: 7.8cqw; }
+.kw-mini .kc-box .ico { width: 6cqw; height: 6cqw; }
+.kw-full .kc-cost { grid-row: 1 / -1; }
+.kw-full .kc-name, .kw-full .kc-text { grid-column: 2; }
+.kw-full .kc-text { padding-bottom: 4.6cqw; }
 .kw .kc-eff { gap: 1.6cqw; border-bottom-width: max(1.5px, .8cqw); }
 .kw .kc-eff .ico { width: 10cqw; height: 10cqw; }
 .kw .kc-num { font-size: 8.5cqw; } .kw .kc-sl { font-size: 7cqw; }
