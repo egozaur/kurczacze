@@ -213,7 +213,7 @@ function renderPreview() {
   const hv = ui.hover;
   box.className = 'preview panel';
   // Sam podgląd (bez przycisków ruchu): karta/Cud wypełnia całe pole.
-  if (hv && hv.t !== 'slot') {
+  if (hv && hv.t !== 'slot' && hv.t !== 'hw') {
     const note = hv.t === 'card' ? ownerNote(g, hv.id) : '';
     box.classList.add('solo');
     if (note) box.classList.add('note');
@@ -241,7 +241,9 @@ function renderPreview() {
       acts += ws.map(w => { const wp = g.wonderPrice[me][w.id]; return `<button class="btn small" data-act="wonder" data-w="${w.id}" data-hw="${w.id}" ${wp.ok ? '' : 'disabled'}><span>${esc(KI.WONDERS[w.id].name)}</span>${coin(wp.coins)}</button>`; }).join('');
     } else if (ws.length) acts += `<span class="why">Zbudowano już wszystkie Cudy.</span>`;
   } else acts = `<span class="why">Poczekaj na swój ruch.</span>`;
-  box.innerHTML = `<div class="pv">${cardHTML(s.id, 'full')}</div><div class="acts">${acts}</div>`;
+  // Najechany przycisk „Wsuń pod Cud”: w miejscu karty pokaż ten Cud, przyciski zostają (inaczej nie da się kliknąć).
+  const pv = hv && hv.t === 'hw' ? wonderHTML(hv.id, 'full') : cardHTML(s.id, 'full');
+  box.innerHTML = `<div class="pv">${pv}</div><div class="acts">${acts}</div>`;
 }
 function ownerNote(g, id) {
   const who = g.players.findIndex(p => p.cards.includes(id));
@@ -294,7 +296,7 @@ document.addEventListener('mouseover', e => {
   const t = e.target.closest('[data-hw],[data-card],[data-wonder],[data-token]');
   let hv = null;
   if (t && t.closest('#stage') && !t.closest('.overlay')) {
-    if (t.dataset.hw) hv = { t: 'wonder', id: t.dataset.hw };
+    if (t.dataset.hw) hv = { t: 'hw', id: t.dataset.hw };
     else if (t.closest('#preview')) hv = ui.hover;
     else if (t.dataset.card) hv = t.closest('.slot.free') && ui.sel != null ? null : { t: 'card', id: t.dataset.card };
     else if (t.dataset.wonder) hv = { t: 'wonder', id: t.dataset.wonder };
