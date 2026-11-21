@@ -1,5 +1,6 @@
 // Kurczacze Imperium — ekran gry. Stan przychodzi z serwera (KI.Game → view); tu tylko rysowanie i kliknięcia.
 // Ekrany: menu (brak #KODU) → dołączanie (nick) → poczekalnia (game = null) → stół (scena 1920×1080 skalowana do okna).
+// „Graj z Kogutem”: pokój z botem na miejscu 1, gra startuje od razu po wejściu (bez poczekalni i zaproszenia).
 import * as KI from './ki.js';
 import { icon, coin, sym, chain, SYMBOLS } from './icons.js';
 import { cardHTML, backHTML, wonderHTML, tokenHTML, tokenFullHTML, effectHTML, costHTML, esc } from './cards.js';
@@ -9,7 +10,7 @@ import * as FX from './fx.js';
 const $ = id => document.getElementById(id);
 const $screen = $('screen'), $stage = $('stage');
 FX.init($stage);
-let G = null, V = null, gotAt = 0, status = '';
+let G = null, V = null, gotAt = 0, status = '', autoJoin = '';
 const ui = { sel: null, hover: null, pin: null, toast: null, tab: 'karta', tuck: false, dlg: null };
 const COLORS = ['brown', 'grey', 'yellow', 'red', 'blue', 'green', 'purple'];
 const HOW = { military: 'zwycięstwo militarne', science: 'zwycięstwo naukowe', civil: 'zwycięstwo cywilne' };
@@ -65,7 +66,7 @@ function route() {
   if (G) { G.stop(); G = null; }
   V = null; status = '';
   if (!code()) return render();
-  if (KI.seat.get(code())) connect(KI.nick.get());
+  if (KI.seat.get(code()) || autoJoin === code()) connect(KI.nick.get());
   else render();
 }
 addEventListener('hashchange', route);
@@ -88,12 +89,20 @@ function render() {
   $screen.innerHTML = lobbyBtn + screenHTML();
 }
 
+// Poziom bota zapamiętany w przeglądarce (domyślnie Średni).
+const botLevel = () => { try { return localStorage.getItem('kurczacze_bot') || 'medium'; } catch (e) { return 'medium'; } };
+const isBot = p => !!(V && V.seats[p] && V.seats[p].bot);
+const botTag = p => `Bot · ${KI.botLevelName(V.seats[p].bot)}`;
+
 function screenHTML() {
   const logo = `<h1 class="logo"><small>PL3Y · gra dla 2 graczy</small>Kurczacze<br>Imperium</h1>`;
   if (!code()) return `<div class="sign panel">${logo}
     <p>Rozbuduj kurnik przez trzy Ery i pokonaj sąsiada militarnie, naukowo albo Złotymi Piórami.</p>
     <input class="field" id="nick" maxlength="16" placeholder="Twój nick" value="${esc(KI.nick.get())}">
     <div class="row"><button class="btn gold" data-act="create" style="flex:1;justify-content:center">Załóż kurnik</button></div>
+    <div class="sep">albo zagraj z botem</div>
+    <div class="chips botlvl">${KI.BOT_LEVELS.map(([k, l]) => `<span class="chip ${botLevel() === k ? 'on' : ''}" data-act="botlvl" data-v="${k}">${l}</span>`).join('')}</div>
+    <div class="row"><button class="btn" data-act="bot" style="flex:1;justify-content:center">${ROOSTER}<span>Graj z Kogutem</span></button></div>
     <div class="sep">albo dołącz kodem</div>
     <div class="row"><input class="field" id="code" maxlength="5" placeholder="KOD" style="text-transform:uppercase;letter-spacing:4px"><button class="btn" data-act="join">Dołącz</button></div>
     <p class="err" id="err"></p></div>`;
@@ -149,7 +158,8 @@ function renderStage() {
 function topbar(g, me) {
   const who = g.actor;
   const phase = g.phase === 'draft' ? 'Wybór Cudów' : g.phase === 'end' ? 'Koniec gry' : ERA_NAME[g.era];
-  const turn = who == null ? '' : who === me ? `<span class="pill turn">Twój ruch</span>` : `<span class="pill">Ruch: ${esc(g.players[who].name)}</span>`;
+  const turn = who == null ? '' : who === me ? `<span class="pill turn">Twój ruch</span>`
+    : isBot(who) ? `<span class="pill">${esc(g.players[who].name)} myśli…</span>` : `<span class="pill">Ruch: ${esc(g.players[who].name)}</span>`;
   const net = status === 'online';
   return `<div class="topbar"><img class="tb-logo" src="${UI}logo.png" alt=""><span class="title">Kurczacze Imperium</span>
     <div class="tb-pills"><span class="pill era">${phase}</span>${turn}<span class="pill hidden" id="timer"></span></div>
@@ -170,6 +180,7 @@ function areaHTML(g, p, side) {
   const on = V.seats[p] && V.seats[p].on;
   const info = `<div class="pinfo ${g.actor === p ? 'active' : ''}">
     <div class="ribbon"><span class="pname">${esc(pl.name)}</span>${p === V.seat ? '<span class="you">Ty</span>' : ''}${on ? '' : '<span class="offl">offline</span>'}</div>
+    ${isBot(p) ? `<span class="botb" title="Grasz z botem (poziom: ${KI.botLevelName(V.seats[p].bot)})">${botTag(p)}</span>` : ''}
     <img class="avatar" src="${UI}avatar-${side === 'me' ? 'me' : 'op'}.png" alt="">
     <div class="stats"><span title="Ziarna" data-coins>${icon('coin')}<b>${pl.coins}</b></span><span title="Złote Pióra (teraz)" data-vp>${icon('feather')}<b>${pl.vp}</b></span></div>
     <div class="ptokens">${pl.tokens.map(t => tokenHTML(t)).join('')}</div>
@@ -358,10 +369,10 @@ function dialogHTML(g, me) {
   else if (ui.dlg === 'legend') body = legendHTML();
   else if (ui.dlg === 'cfg') body = `<p class="win-title">Kurnik ${esc(V.code)}</p>
     <p>Połączenie: <b>${status === 'online' ? 'połączono' : 'łączenie…'}</b></p>
-    ${g.players.map((p, i) => `<p>${esc(p.name)}${i === me ? ' (Ty)' : ''}: <b>${V.seats[i] && V.seats[i].on ? 'online' : 'offline'}</b></p>`).join('')}
-    <p>Limit czasu na turę: <b>${V.time ? V.time + ' s' : 'bez limitu'}</b></p>
+    ${g.players.map((p, i) => `<p>${esc(p.name)}${i === me ? ' (Ty)' : ''}: <b>${isBot(i) ? botTag(i).toLowerCase() : V.seats[i] && V.seats[i].on ? 'online' : 'offline'}</b></p>`).join('')}
+    ${isBot(1 - me) ? '' : `<p>Limit czasu na turę: <b>${V.time ? V.time + ' s' : 'bez limitu'}</b></p>`}
     <p>Animacje:</p><div class="chips">${FX.MODES.map(([k, l]) => `<span class="chip ${FX.mode() === k ? 'on' : ''}" data-act="fxmode" data-v="${k}">${l}</span>`).join('')}</div>
-    <p><button class="btn small" data-act="copy">Skopiuj link do kurnika</button></p>`;
+    ${isBot(1 - me) ? '' : '<p><button class="btn small" data-act="copy">Skopiuj link do kurnika</button></p>'}`;
   else if (ui.dlg === 'log') body = `<p class="win-title">Historia rozgrywki</p><div class="log-list full">${logRows(g, me)}</div>`;
   const wide = ui.dlg === 'rules' || ui.dlg === 'legend';
   return `<div class="overlay dlg" data-act="dlg" data-v=""><div class="dialog panel ${wide ? 'wide' : ''}" data-stop="1"><button class="dlg-x" data-act="dlg" data-v="" title="Zamknij (Esc)">✕</button>${body}<p><button class="btn" data-act="dlg" data-v="">Zamknij</button></p></div></div>`;
@@ -376,7 +387,7 @@ function overlayHTML(g, me) {
     return `<div class="overlay ${FX.holding() ? 'fx-wait' : ''}"><div class="dialog panel"><p class="win-title">${title}</p><p><b>${HOW[w.how] || ''}</b></p>
       ${sc.length ? `<table class="score"><tr><th></th>${g.players.map(p => `<th>${esc(p.name)}</th>`).join('')}</tr>
         ${rows.map(([k, label, ic]) => `<tr class="${k === 'total' ? 'total' : ''}"><th>${ic} ${label}</th>${sc.map(x => `<td>${x[k]}</td>`).join('')}</tr>`).join('')}</table>` : ''}
-      <p><button class="btn gold" data-act="rematch">Rewanż</button> <button class="btn" data-act="home">← Lobby</button></p></div></div>`;
+      <p><button class="btn gold" data-act="rematch">Rewanż</button>${isBot(1 - me) ? ' <button class="btn" data-act="menu">Inny poziom</button>' : ''} <button class="btn" data-act="home">← Lobby</button></p></div></div>`;
   }
   if (!g.pending) return '';
   const wait = FX.holding() ? 'fx-wait' : '';
@@ -445,6 +456,16 @@ document.addEventListener('click', async e => {
     KI.nick.set(n);
     try { const r = await KI.createRoom(); location.hash = r.code; }
     catch (er) { err('Nie udało się założyć kurnika. Sprawdź internet i spróbuj jeszcze raz.'); }
+  } else if (a === 'botlvl') {
+    try { localStorage.setItem('kurczacze_bot', v); } catch (er) {}
+    document.querySelectorAll('[data-act=botlvl]').forEach(c => c.classList.toggle('on', c.dataset.v === v));
+  } else if (a === 'bot') {
+    const n = $('nick').value.trim();
+    if (!n) return err('Wpisz swój nick.');
+    KI.nick.set(n);
+    b.disabled = true;
+    try { const r = await KI.createRoom({ bot: botLevel() }); autoJoin = r.code; location.hash = r.code; }
+    catch (er) { b.disabled = false; err('Nie udało się zacząć gry z Kogutem. Sprawdź internet i spróbuj jeszcze raz.'); }
   } else if (a === 'join') {
     const n = $('nick').value.trim(), c = $('code').value.trim().toUpperCase();
     if (!n) return err('Wpisz swój nick.');

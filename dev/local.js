@@ -61,10 +61,10 @@ setInterval(() => {
   for (const [key, ws] of conns) if (now - ws.seen > 12000) { ws.close(1006, 'timeout'); closeConn(key); }
 }, 3000);
 
-async function api({ method, path }) {
+async function api({ method, path, body }) {
   if (path === '/api/ki/rooms' && method === 'POST') {
     const code = newCode(); const r = makeRoom(); rooms.set(code, r);
-    return { status: 200, json: await r.room.init(code) };
+    return { status: 200, json: await r.room.init(code, { bot: body && body.bot }) };
   }
   return { status: 404, json: null };
 }

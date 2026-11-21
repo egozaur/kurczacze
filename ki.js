@@ -21,6 +21,8 @@ export const TOKENS = Object.fromEntries(DATA.tokens.map(t => [t.id, t]));
 export const RES = DATA.resources;                 // { S: 'Słoma', … }
 export const COLORS = DATA.colors;                 // { brown: 'Zasoby Podwórza', … }
 export const TIMES = [0, 60, 90, 120];
+export const BOT_LEVELS = [['easy', 'Łatwy'], ['medium', 'Średni'], ['hard', 'Trudny']];
+export const botLevelName = k => (BOT_LEVELS.find(([x]) => x === k) || [, ''])[1];
 
 const ls = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -63,17 +65,19 @@ class LocalSocket {
   send(d) { port.postMessage({ t: 'send', cid: this.cid, data: d }); }
   close() { if (this.readyState > 1) return; this.readyState = 3; socks.delete(this.cid); port.postMessage({ t: 'close', cid: this.cid }); }
 }
-function localCall(body) { return new Promise(res => { const rid = ++ridSeq; waits.set(rid, res); localPort().postMessage({ t: 'api', rid, body }); }); }
+function localCall(req) { return new Promise(res => { const rid = ++ridSeq; waits.set(rid, res); localPort().postMessage({ t: 'api', rid, body: req }); }); }
 
-export async function createRoom() {
+// opts.bot = 'easy' | 'medium' | 'hard': pokój z botem Kogut Zenek na miejscu 1 (gra startuje po wejściu gracza).
+export async function createRoom(opts = {}) {
+  const body = opts.bot ? { bot: opts.bot } : null;
   if (LOCAL) {
-    const m = await localCall({ method: 'POST', path: '/api/ki/rooms' });
+    const m = await localCall({ method: 'POST', path: '/api/ki/rooms', body });
     if (m.status >= 300) throw new Error('HTTP ' + m.status);
     return m.json;
   }
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
   try {
-    const r = await fetch(API + '/api/ki/rooms', { method: 'POST', signal: ctl.signal, headers: authHead() });
+    const r = await fetch(API + '/api/ki/rooms', { method: 'POST', signal: ctl.signal, headers: authHead(body ? { 'Content-Type': 'application/json' } : {}), body: body ? JSON.stringify(body) : undefined });
     onAuthFail(r);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return await r.json();
