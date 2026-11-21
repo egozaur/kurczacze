@@ -2,8 +2,8 @@
 // pełną historię. Przy każdym ruchu pokazuje, co w tej sytuacji wybrałby bot Trudny (z widoku gracza, bez zakrytych kart).
 //   node dev/replay.mjs <zapis.json> [--bot]     (--bot = podpowiedzi Trudnego; bez niego sama historia)
 import fs from 'node:fs';
-import * as E from '../../mafia/worker/src/kurczacze/engine.js';
-import { botMove } from '../../mafia/worker/src/kurczacze/bot.js';
+import * as E from '../../pl3y-server/src/games/kurczacze/engine.js';
+import { botMove } from '../../pl3y-server/src/games/kurczacze/bot.js';
 
 const [file, flag] = process.argv.slice(2);
 if (!file) { console.log('Użycie: node dev/replay.mjs <zapis.json> [--bot]'); process.exit(1); }

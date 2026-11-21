@@ -1,7 +1,7 @@
 // Lokalny serwer deweloperski (tryb ?local=1): ta sama klasa KiRoom co na Cloudflare, uruchomiona w SharedWorkerze
-// z atrapą ctx. Importuje kod serwera z sąsiedniego repo mafia, więc dev/serve.ps1 serwuje folder nadrzędny.
+// z atrapą ctx. Importuje kod serwera z sąsiedniego repo pl3y-server, więc dev/serve.ps1 serwuje folder nadrzędny.
 // Stan żyje, dopóki otwarta jest choć jedna karta.
-import { KiRoom } from '/mafia/worker/src/kurczacze/room.js';
+import { KiRoom } from '/pl3y-server/src/games/kurczacze/room.js';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const rooms = new Map();          // code -> { room, run, sockets }

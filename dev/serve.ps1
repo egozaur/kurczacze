@@ -1,5 +1,5 @@
 # Prosty serwer statyczny do testow lokalnych (bez Node i Pythona).
-# Serwuje folder nadrzedny (Claude-roboczy) (tryb ?local=1 importuje kod serwera z ../mafia).
+# Serwuje folder nadrzedny (Claude-roboczy) (tryb ?local=1 importuje kod serwera z ../pl3y-server).
 # Uruchom:  powershell -ExecutionPolicy Bypass -File dev\serve.ps1   ->  http://localhost:8093/kurczacze/
 param([int]$Port = 8093)
 $root = (Resolve-Path "$PSScriptRoot\..\..").Path

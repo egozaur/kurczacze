@@ -1,8 +1,8 @@
 // Kurczacze Imperium — wspólny kod klienta (moduł ES): dane kart, połączenie z serwerem PL3Y (albo z lokalnym
 // SharedWorkerem w trybie ?local=1), pamięć miejsca w pokoju i nicku. Bez wyglądu: UI buduje się na tym module.
 //
-// Dane kart pochodzą z jednego źródła: pliku serwera w repo mafia (GitHub Pages serwuje go pod /mafia/...).
-import { DATA } from '/mafia/worker/src/kurczacze/data.js';
+// Dane kart: ./data.js to kopia pliku serwera (pl3y-server/src/games/kurczacze/data.js); synchronizacja: node dev/sync-data.mjs.
+import { DATA } from './data.js';
 
 export { DATA };
 export const API = 'https://pl3y-server.pl3y.workers.dev';
