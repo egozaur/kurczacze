@@ -91,7 +91,7 @@ export function wonderHTML(wid, size = 'mini', extra = '', cls = '') {
     <div class="kw-cost ${n >= 5 ? 'n5' : ''}">${costHTML({ cost: w.cost })}</div>
     <div class="kw-art">${art(wid)}<div class="kw-name"><span>${esc(w.name)}</span></div></div>
     <div class="kw-eff">${effectHTML(w)}</div>
-  </div><span class="kw-stamp">Zbudowany</span></div>`;
+  </div><span class="kw-stamp">✓ Zbudowany</span></div>`;
 }
 
 // Odkrycie: okrągły żeton.

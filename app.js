@@ -170,6 +170,7 @@ function renderStage() {
     <div class="log panel">${logHTML(g, me)}</div></div>`;
   h += overlayHTML(g, me) + dialogHTML(g, me);
   $stage.innerHTML = h;
+  hideTip();
   renderPreview();
   FX.reapply();
   fit();
@@ -178,19 +179,22 @@ function renderStage() {
 
 function topbar(g, me) {
   const who = g.actor;
-  const phase = g.phase === 'draft' ? 'Wybór Cudów' : g.phase === 'end' ? 'Koniec gry' : ERA_NAME[g.era];
+  const phase = g.phase === 'draft' ? 'Wybór Cudów' : ERA_NAME[g.era];
   const turn = who == null ? '' : who === me ? `<span class="pill turn">Twój ruch</span>`
     : isBot(who) ? `<span class="pill">${esc(g.players[who].name)} myśli…</span>` : `<span class="pill">Ruch: ${esc(g.players[who].name)}</span>`;
   const net = status === 'online';
   return `<div class="topbar"><img class="tb-logo" src="${UI}logo.png" alt=""><span class="title">Kurczacze Imperium</span>
-    <div class="tb-pills"><span class="pill era">${phase}</span>${turn}<span class="pill hidden" id="timer"></span></div>
+    <div class="tb-group match"><div class="tb-pills"><span class="pill era">${phase}</span>${turn}<span class="pill hidden" id="timer"></span></div>
+      ${g.phase === 'end' ? '<span class="pill over">Koniec gry</span>' : ''}
+      ${g.phase === 'end' && ui.endHidden ? '<button class="tb-btn gold" data-act="endshow" title="Pokaż okno wyniku">Wynik</button>' : ''}</div>
     <span class="spacer"></span>
     <span class="tb-net"><span class="dot ${net ? '' : 'off'}"></span>${net ? 'połączono' : 'łączenie…'}</span>
-    ${g.phase === 'end' && ui.endHidden ? '<button class="tb-btn gold" data-act="endshow" title="Pokaż okno wyniku">Wynik</button>' : ''}
-    <button class="tb-btn" data-act="dlg" data-v="rules" title="Zasady gry w skrócie">Zasady</button>
-    <button class="tb-btn" data-act="dlg" data-v="legend" title="Co znaczą ikony">Legenda</button>
-    <button class="tb-btn sq" data-act="dlg" data-v="cfg" title="Kurnik i połączenie">${GEAR}</button>
-    <button class="tb-btn" data-act="home">Lobby</button></div>`;
+    <span class="tb-sep"></span>
+    <div class="tb-group help">
+      <button class="tb-btn" data-act="dlg" data-v="rules" title="Zasady gry w skrócie">Zasady</button>
+      <button class="tb-btn" data-act="dlg" data-v="legend" title="Co znaczą ikony">Legenda</button>
+      <button class="tb-btn sq" data-act="dlg" data-v="cfg" title="Kurnik i połączenie">${GEAR}</button>
+      <button class="tb-btn" data-act="home">Lobby</button></div></div>`;
 }
 
 function areaHTML(g, p, side) {
@@ -206,8 +210,8 @@ function areaHTML(g, p, side) {
     <img class="avatar" src="${UI}avatar-${side === 'me' ? 'me' : 'op'}.png" alt="">
     <div class="stats"><span title="Ziarna" data-coins>${icon('coin')}<b>${pl.coins}</b></span><span title="Złote Pióra teraz: ${pl.vp}, w tym ${Math.floor(pl.coins / CPV)} za Ziarna (1 za każde ${CPV})" data-vp>${icon('feather')}<b>${pl.vp}</b></span></div>
     <div class="ptokens">${pl.tokens.map(t => tokenHTML(t)).join('')}</div>
-    <div class="symrow">${SYMBOLS.map(s => `<span title="${esc(s)}" data-sym="${esc(s)}">${sym(s, (have.has(s) ? 'have' : '') + (two.has(s) ? ' two' : ''))}</span>`).join('')}</div>
-    <div class="prodline">${prod || choice ? prod + (prod && choice ? ' · ' : '') + choice : '<span class="muted">brak produkcji</span>'}</div></div>`;
+    <div class="symrow" title="Symbole Nauki (para = Odkrycie, 5 różnych = zwycięstwo)">${SYMBOLS.map(s => `<span title="${esc(s)}" data-sym="${esc(s)}">${sym(s, (have.has(s) ? 'have' : '') + (two.has(s) ? ' two' : ''))}</span>`).join('')}</div>
+    <div class="prodline" title="Produkcja surowców">${prod || choice ? prod + (prod && choice ? ' · ' : '') + choice : '<span class="muted">brak produkcji</span>'}</div></div>`;
   // Imperium: kolumny kolorów, szerokość kart dopasowana do liczby kolumn (pole 384×212).
   const cols = COLORS.map(c => pl.cards.filter(id => KI.CARDS[id].color === c)).filter(a => a.length);
   const EW = 384, EH = 206, n = cols.length;
@@ -229,7 +233,8 @@ function trackHTML(g, me) {
   let h = '<div class="track"><div class="rail">';
   for (let k = 7; k >= -7; k--) {
     const z = Math.abs(k), cls = k === 0 ? 'mid' : z <= 2 ? 'z1' : z <= 4 ? 'z2' : z <= 6 ? 'z3' : 'z4';
-    h += `<div class="f ${cls}" style="top:${(7 - k) * FH}px;height:${FH}px"></div>`;
+    // zs = pierwsze pole strefy (kreska); cur = pole, na którym stoi Kogut (fx.js chowa je do końca lotu)
+    h += `<div class="f ${cls}${(k > 0 && z % 2 === 0) || (k < 0 && z % 2 === 1 && z >= 3) ? ' zs' : ''}${k === d ? ' cur' : ''}" style="top:${(7 - k) * FH}px;height:${FH}px"></div>`;
   }
   h += '</div>';
   h += `<img class="nest top" src="${UI}nest-top.png" alt="" title="Gniazdo: ${esc(g.players[1 - me].name)}"><img class="nest bot" src="${UI}nest-bot.png" alt="" title="Twoje Gniazdo">`;
@@ -238,6 +243,7 @@ function trackHTML(g, me) {
   }
   const lossFor = (victim, sgn) => g.loss[victim].filter(t => !t.used).map(t => `<span class="loss" data-loss="${victim}-${t.at}" style="top:${TOP + (7 - t.at * sgn) * FH + FH / 2 - 17}px" title="Pierwsze wejście: −${t.amount} Ziaren">${coin('−' + t.amount)}</span>`).join('');
   h += lossFor(1 - me, 1) + lossFor(me, -1);
+  h += `<span class="curband" style="top:${TOP + (7 - d) * FH}px"></span>`;
   h += `<span class="rooster" style="top:${TOP + (7 - d) * FH + FH / 2 - 28}px" title="Kogut Bojowy">${ROOSTER}</span>`;
   return h + '</div>';
 }
@@ -259,7 +265,7 @@ function boardHTML(g, me) {
   const STEP = rows > 1 ? Math.min(CW * .48, (BH - CH) / (rows - 1)) : 0;
   const W = maxX * HALF + CW, H = CH + (rows - 1) * STEP;
   const myTurn = g.actor === me && !g.pending && g.phase === 'play';
-  let h = `<div class="era-banner"><b>${ERA_NAME[g.era]}</b> · Cudów do zbudowania: ${g.wondersLeft}</div>
+  let h = `<div class="era-banner"><b>${ERA_NAME[g.era]}</b>${g.wondersLeft > 0 ? `<span class="era-w" title="Cudów do zbudowania: ${g.wondersLeft}">${icon('wonder').repeat(g.wondersLeft)}</span>` : ''}</div>
     <div class="lay" style="left:${(BW - W) / 2}px;top:${62 + (BH - H) / 2}px;width:${W}px;height:${H}px;--cw:${CW}px">`;
   g.slots.forEach((s, i) => {
     if (s.taken) return;
@@ -309,10 +315,21 @@ function infoHTML(kind, id, replace = '') {
   const sub = kind === 'card' ? `${x.color === 'purple' ? 'Bractwo' : KI.COLORS[x.color]} · ${ERA_NAME[x.era]}` : 'Kurzy Cud';
   const cost = costHTML(kind === 'card' ? x : { cost: x.cost });
   const info = replace || `<div class="pv-info"><h3>${esc(x.name)}</h3><div class="pv-sub">${esc(sub)}</div>
-    <div class="pv-ce"><div><h4>Koszt budowy</h4><div class="pv-cost">${cost || '<span class="muted">bez kosztu</span>'}</div></div>
-    <div><h4>Efekt</h4><div class="pv-icons">${effectHTML(x)}</div></div></div><p class="pv-text">${esc(x.text)}</p>
-    <p class="pv-flavor">${esc(x.flavor)}</p></div>`;
+    <div class="pv-ce"><div class="pv-sec"><h4>Koszt budowy</h4><div class="pv-cost">${cost || '<span class="muted">bez kosztu</span>'}</div></div>
+    <div class="pv-sec"><h4>Efekt</h4><div class="pv-icons">${effectHTML(x)}</div></div></div><p class="pv-text">${esc(x.text)}</p>
+    ${kind === 'card' ? chainSecHTML(x) : ''}
+    <div class="pv-sec fl"><h4>Z przymrużeniem oka</h4><p class="pv-flavor">${esc(x.flavor)}</p></div></div>`;
   return `<div class="pv-top ${kind}"><div class="pv">${picture}</div>${info}</div>`;
+}
+// Łańcuch: dane tylko z kart po stronie przeglądarki (chain_give / chain_from), nic nie jest liczone.
+function chainSecHTML(x) {
+  if (!x.chain_give && !x.chain_from) return '';
+  const names = f => Object.values(KI.CARDS).filter(f).map(c => c.name);
+  const list = a => a.length > 3 ? `${a.slice(0, 3).map(esc).join(', ')} i ${a.length - 3} inn.` : a.map(esc).join(', ');
+  let h = '';
+  if (x.chain_from) h += `<div>${chain(x.chain_from, true)}<span>Za darmo po śladzie <b>${esc(x.chain_from)}</b>${(n => n.length ? `<br><small>zostawia go: ${list(n)}</small>` : '')(names(c => c.chain_give === x.chain_from))}</span></div>`;
+  if (x.chain_give) h += `<div>${chain(x.chain_give)}<span>Zostawia ślad <b>${esc(x.chain_give)}</b>${(n => n.length ? `<br><small>odblokowuje: ${list(n)}</small>` : '')(names(c => c.chain_from === x.chain_give))}</span></div>`;
+  return `<div class="pv-sec"><h4>Łańcuch</h4><div class="pv-chain">${h}</div></div>`;
 }
 function ownerNote(g, id) {
   const who = g.players.findIndex(p => p.cards.includes(id));
@@ -378,7 +395,7 @@ function logIcon(t) {
   if (/^Era|Losowanie/.test(t)) return icon('nest');
   return icon('feather');
 }
-const logRows = (g, me) => g.log.slice().reverse().map(l => `<div class="${l.p === me ? 'me' : ''}">${logIcon(l.text)}<span>${esc(l.text)}</span></div>`).join('');
+const logRows = (g, me) => g.log.slice().reverse().map(l => `<div class="${l.p === me ? 'me' : l.p != null ? 'op' : ''}">${logIcon(l.text)}<span>${esc(l.text)}</span></div>`).join('');
 function logHTML(g, me) {
   return `<div class="log-head"><h3 class="h-title">Historia rozgrywki</h3><button class="btn tiny" data-act="dlg" data-v="log">Pokaż całą historię</button></div>
     <div class="log-list" id="log">${logRows(g, me)}</div>`;
@@ -550,3 +567,23 @@ addEventListener('keydown', e => { if (e.key === 'Escape' && (ui.sel != null || 
 
 if (APP) document.body.classList.add('app');
 route();
+
+// ---------- własny, szybki dymek zamiast wbudowanego title ----------
+// Przy pierwszym najechaniu title przechodzi do data-tip (natywny dymek nie wyskakuje); render sceny przywraca title, więc działa dalej.
+const $tip = document.createElement('div'); $tip.id = 'tip'; document.body.append($tip);
+function hideTip() { const t = document.getElementById('tip'); if (t) t.classList.remove('on'); }
+document.addEventListener('mouseover', e => {
+  const t = e.target.closest ? e.target.closest('[title],[data-tip]') : null;
+  if (!t || !t.closest('#stage')) return hideTip();
+  if (t.hasAttribute('title')) { t.dataset.tip = t.getAttribute('title'); t.removeAttribute('title'); }
+  if (!t.dataset.tip) return hideTip();
+  $tip.textContent = t.dataset.tip;
+  $tip.classList.add('on');
+  const r = t.getBoundingClientRect(), w = $tip.offsetWidth, h = $tip.offsetHeight;
+  let x = r.left + r.width / 2 - w / 2, y = r.top - h - 8;
+  if (y < 4) y = r.bottom + 8;
+  $tip.style.left = Math.max(4, Math.min(innerWidth - w - 4, x)) + 'px';
+  $tip.style.top = y + 'px';
+});
+document.addEventListener('mouseout', e => { if (!e.relatedTarget || !e.relatedTarget.closest || !e.relatedTarget.closest('[data-tip],[title]')) hideTip(); });
+document.addEventListener('mousedown', hideTip);

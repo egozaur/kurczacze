@@ -338,7 +338,7 @@ async function run(E, S, alive) {
   let roo = null, rooOff = 0;
   if (E.track && S && S.rooster) {
     roo = $$('.track .rooster');
-    if (roo) { rooOff = S.rooster.y - R(roo).y; roo.style.transform = `translateY(${rooOff}px)`; }
+    if (roo) { rooOff = S.rooster.y - R(roo).y; roo.style.transform = `translateY(${rooOff}px)`; mark('.track .f.cur', 'fx-nohl'); mark('.track .curband', 'fx-nohl'); }   // podświetlenie pola czeka na Koguta
   }
   const backs = (E.reveal || []).map(i => {
     const el = $$(SEL.slot(i)); if (!el) return null;
@@ -427,6 +427,7 @@ async function run(E, S, alive) {
     }
     roo.style.transform = '';
     await anim(roo, kf, { dur: 280 * n, fill: 'none', ease: 'linear' });
+    unmark('.track .f.cur'); unmark('.track .curband');
     if (!alive()) return;
     ring(R(roo), '#9C7A4E');
     if (losses.length) losses.forEach(crack);
@@ -515,8 +516,9 @@ async function wonderBuilt(el) {
   ring(R(el), '#E8B83A');
   anim(el, [{ filter: 'grayscale(1) brightness(.9)' }, { filter: 'grayscale(0) brightness(1.3)', offset: .5 }, { filter: 'grayscale(0) brightness(1)' }], { dur: 900, fill: 'none' });
   glow(el, '242,207,106', 900, 1);
-  if (st) await anim(st, [{ transform: 'translate(-50%,-50%) rotate(-12deg) scale(3)', opacity: 0 }, { transform: 'translate(-50%,-50%) rotate(-12deg) scale(.9)', opacity: 1, offset: .75 },
-    { transform: 'translate(-50%,-50%) rotate(-12deg) scale(1)', opacity: 1 }], { dur: 450, delay: 350, fill: 'backwards', ease: 'ease-in' });
+  // plakietka „✓ Zbudowany” spada z dużej pieczątki na swoje miejsce w rogu
+  if (st) await anim(st, [{ transform: 'scale(3.2) rotate(-10deg)', opacity: 0 }, { transform: 'scale(.9) rotate(0deg)', opacity: 1, offset: .75 },
+    { transform: 'scale(1) rotate(0deg)', opacity: 1 }], { dur: 450, delay: 350, fill: 'backwards', ease: 'ease-in' });
   else await sleep(800);
 }
 async function flip(i, g, k) {
