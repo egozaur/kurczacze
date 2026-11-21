@@ -3,7 +3,7 @@
 // (te same współrzędne 1920×1080 co #stage). Scena jest już narysowana w stanie końcowym; elementy, które mają się
 // „pojawić” na końcu lotu, są na czas animacji ukryte klasą (marks), ponawianą po każdym przerysowaniu sceny.
 // Użycie w app.js: S = snap(); E = diff(stary, nowy); begin(E); render(); play(E, S). reapply() na końcu renderStage().
-import { CARDS } from './ki.js';
+import { CARDS, DATA } from './ki.js';
 import { backHTML } from './cards.js';
 import { icon, eraEgg } from './icons.js';
 
@@ -89,6 +89,9 @@ const vpEl = p => $$(`${area(p)} [data-vp] b`);
 const coinPt = p => ptOf(`${area(p)} [data-coins] .ico`);
 const vpPt = p => ptOf(`${area(p)} [data-vp] .ico`);
 const setText = (el, v) => { if (el) el.textContent = v; };
+const COINS_PER_VP = DATA.rules.coins_per_vp || 4;
+const coinVp = c => Math.floor(c / COINS_PER_VP);            // Pióra za Ziarna (część licznika Piór)
+const feathers = n => `${n} ${n === 1 ? 'Pióro' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'Pióra' : 'Piór'}`;
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 function ghost(html, r, cls = '') {
@@ -141,8 +144,8 @@ function ring(r, color = '#2E2118') {
   g.style.borderColor = color;
   return anim(g, [{ transform: 'scale(.86)', opacity: .9 }, { transform: 'scale(1.28)', opacity: 0 }], { dur: 480, ease: 'ease-out' }).then(() => g.remove());
 }
-function popText(t, p, cls = '') {
-  const g = ghost(`<span>${t}</span>`, { x: p.x - 70, y: p.y - 24, w: 140, h: 48 }, 'fx-pop ' + cls);
+function popText(t, p, cls = '', w = 140) {
+  const g = ghost(`<span>${t}</span>`, { x: p.x - w / 2, y: p.y - 24, w, h: 48 }, 'fx-pop ' + cls);
   return anim(g, [{ transform: 'translateY(10px) scale(.6)', opacity: 0 }, { transform: 'translateY(-14px) scale(1.15)', opacity: 1, offset: .3 }, { transform: 'translateY(-46px) scale(1)', opacity: 0 }], { dur: 1100 }).then(() => g.remove());
 }
 // Ikonki (ziarna, ostrogi) lecące z punktu do punktu, jedna za drugą.
@@ -448,6 +451,15 @@ async function run(E, S, alive) {
   if (E.vp) [0, 1].forEach(p => {
     if (!E.vp[p]) return;
     countUp(vpEl(p), E.oldVp[p], b.players[p].vp, 700, 250);
+    // Licznik Piór to bieżąca suma punktów, a w niej 1 Pióro za każde 4 Ziarna. Gdy cała zmiana bierze się z Ziaren
+    // (np. odrzucenie karty), pióro wylatuje z licznika Ziaren i jest podpisane, skąd się wzięło.
+    const cv = coinVp(b.players[p].coins) - coinVp(E.oldCoins[p]);
+    if (cv && cv === E.vp[p]) {
+      const to = vpPt(p);
+      par.push(sleep(300).then(() => popText(cv > 0 ? `+${feathers(cv)} za Ziarna` : `−${feathers(-cv)}: mniej Ziaren`, { x: to.x + 180, y: to.y + 6 }, 'small', 240)));   // na prawo od licznika, nie na wstędze z imieniem
+      if (cv > 0) par.push(spray('feather', cv, coinPt(p), to, { arc: -50, dur: 600, delay: 450, size: 36 }));
+      return;
+    }
     if (E.vp[p] > 0) {
       const to = vpPt(p), g = ghost(icon('feather'), box({ x: to.x + 20, y: to.y - 110 }, 36), 'fx-ic');
       par.push(anim(g, [{ transform: 'translate(0,0) rotate(-40deg)', opacity: 0 }, { transform: 'translate(-30px,50px) rotate(30deg)', opacity: 1, offset: .5 }, { transform: 'translate(-20px,110px) rotate(0deg)', opacity: .2 }], { dur: 750, ease: 'ease-in' }).then(() => g.remove()));

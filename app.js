@@ -150,6 +150,7 @@ function screenHTML() {
 // Ty na dole, z prawej zakładki Karta / Cuda / Nauka / Wojsko, Odkrycia na planszy i Historia rozgrywki.
 const UI = new URL('img/ui/', import.meta.url).href;
 const ERA_NAME = ['', 'Era Jajka', 'Era Pisklęcia', 'Era Koguta'];
+const CPV = KI.DATA.rules.coins_per_vp || 4;   // 1 Złote Pióro za każde CPV Ziaren (część licznika Piór)
 const TABS = [['karta', 'Karta'], ['cuda', 'Cuda'], ['nauka', 'Nauka'], ['wojsko', 'Wojsko']];
 const GEAR = `<svg class="ico" viewBox="0 0 64 64"><path d="M28 4h8l2 8 6 3 7-4 6 6-4 7 3 6 8 2v8l-8 2-3 6 4 7-6 6-7-4-6 3-2 8h-8l-2-8-6-3-7 4-6-6 4-7-3-6-8-2v-8l8-2 3-6-4-7 6-6 7 4 6-3z" fill="currentColor"/><circle cx="32" cy="32" r="10" fill="#3A2414"/></svg>`;
 const HAMMER = `<svg class="ico" viewBox="0 0 64 64"><path d="M30 26l8 8-22 22a5.7 5.7 0 0 1-8-8z" fill="#8A5A30" stroke="#2E2118" stroke-width="3" stroke-linejoin="round"/><path d="M24 14l14-8 20 20-8 14-6-6 4-6-8-8-6 4z" fill="#6B6A63" stroke="#2E2118" stroke-width="3" stroke-linejoin="round"/></svg>`;
@@ -203,7 +204,7 @@ function areaHTML(g, p, side) {
     <div class="ribbon"><span class="pname">${esc(pl.name)}</span>${p === V.seat ? '<span class="you">Ty</span>' : ''}${on ? '' : '<span class="offl">offline</span>'}</div>
     ${isBot(p) ? `<span class="botb" title="Grasz z botem (poziom: ${KI.botLevelName(V.seats[p].bot)})">${botTag(p)}</span>` : ''}
     <img class="avatar" src="${UI}avatar-${side === 'me' ? 'me' : 'op'}.png" alt="">
-    <div class="stats"><span title="Ziarna" data-coins>${icon('coin')}<b>${pl.coins}</b></span><span title="Złote Pióra (teraz)" data-vp>${icon('feather')}<b>${pl.vp}</b></span></div>
+    <div class="stats"><span title="Ziarna" data-coins>${icon('coin')}<b>${pl.coins}</b></span><span title="Złote Pióra teraz: ${pl.vp}, w tym ${Math.floor(pl.coins / CPV)} za Ziarna (1 za każde ${CPV})" data-vp>${icon('feather')}<b>${pl.vp}</b></span></div>
     <div class="ptokens">${pl.tokens.map(t => tokenHTML(t)).join('')}</div>
     <div class="symrow">${SYMBOLS.map(s => `<span title="${esc(s)}" data-sym="${esc(s)}">${sym(s, (have.has(s) ? 'have' : '') + (two.has(s) ? ' two' : ''))}</span>`).join('')}</div>
     <div class="prodline">${prod || choice ? prod + (prod && choice ? ' · ' : '') + choice : '<span class="muted">brak produkcji</span>'}</div></div>`;
@@ -250,8 +251,9 @@ function boardHTML(g, me) {
       <div class="offer">${g.draft.offer.map(w => wonderHTML(w, 'mini', mine ? `data-act="pick" data-v="${w}"` : '')).join('')}</div></div>`;
   }
   if (!g.slots) return '';
-  // Wielkość kart dobrana do Ery: pole 1110×412 pod banerem (z miejscem na plakietki cen).
-  const BW = 1110, BH = 412, maxX = Math.max(...g.slots.map(s => s.x)), rows = g.rows.length;
+  // Wielkość kart dobrana do Ery: pole 1110×384 pod banerem. Pod nim zostaje miejsce na plakietki cen (42 px),
+  // żeby nie wchodziły na półkę i napis „Cuda (…)” gracza (półka na y = 826 sceny).
+  const BW = 1110, BH = 384, maxX = Math.max(...g.slots.map(s => s.x)), rows = g.rows.length;
   const CW = Math.floor(Math.min(150, (BW - 40 - 6 * maxX) / (maxX / 2 + 1), BH / (68 / 44 + .42 * (rows - 1))));
   const CH = CW * 68 / 44, HALF = CW / 2 + 6;
   const STEP = rows > 1 ? Math.min(CW * .48, (BH - CH) / (rows - 1)) : 0;

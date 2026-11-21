@@ -147,7 +147,7 @@ input.field { font: 700 20px var(--f-text); padding: 10px 14px; border: 3px soli
 .slot.free.mine.ok .kc { box-shadow: 0 0 0 3px #B6E07A, 0 0 16px 5px rgba(150,210,90,.85); }
 @media (hover: hover) { .slot.free.mine:hover { transform: translateY(-8px); z-index: 30 !important; } }
 .slot.sel .kc { box-shadow: 0 0 0 4px var(--frame-l), 0 0 20px 7px rgba(242,207,106,.95) !important; }
-.price { position: absolute; left: 50%; bottom: -44px; transform: translateX(-50%); width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+.price { position: absolute; left: 50%; bottom: -42px; transform: translateX(-50%); width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
   border: 3px solid #8A5E16; background: radial-gradient(circle at 40% 35%, #FBE08A, #E0A93A 70%); font: 800 24px/1 var(--f-title); color: #3A2414; z-index: 5; box-shadow: 0 2px 3px rgba(40,20,5,.4); }
 .price.no { filter: grayscale(.7); color: var(--bad); border-color: var(--bad); }
 .price.free { background: #DDEBCB; border-color: var(--ok); }
@@ -369,6 +369,9 @@ input.field { font: 700 20px var(--f-text); padding: 10px 14px; border: 3px soli
 .fx-sad { filter: grayscale(1) brightness(.8); }
 .fx-ring { border: 5px solid #2E2118; border-radius: 14px; }
 .fx-pop { display: grid; place-items: center; font: 900 40px var(--f-title); color: #3A2414; text-shadow: 0 2px 0 #FBEBC0, 0 0 10px #FBEBC0, 0 0 4px #FBEBC0; }
+/* „+1 Pióro za Ziarna” nad licznikiem Piór: kremowa plakietka jak „Cuda (…)”, czytelna także na czerwonej wstędze */
+.fx-pop.small { font: 800 22px var(--f-title); white-space: nowrap; text-shadow: none; }
+.fx-pop.small span { padding: 2px 16px; border: 2px solid #B98A2E; border-radius: 999px; background: linear-gradient(#FBEBC0, #E9CF8F); box-shadow: 0 3px 6px rgba(80,50,20,.35); }
 .fx-paw { border-radius: 50%; background: #F2CF6A; border: 2px solid #8A5E16; box-shadow: 0 0 10px 3px rgba(242,207,106,.8); }
 /* spalenie: maska kurczy się od krawędzi, brzeg przypalony */
 @property --burn { syntax: '<percentage>'; inherits: true; initial-value: 160%; }
