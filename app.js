@@ -11,7 +11,7 @@ const $ = id => document.getElementById(id);
 const $screen = $('screen'), $stage = $('stage');
 FX.init($stage);
 let G = null, V = null, gotAt = 0, status = '', autoJoin = '';
-const ui = { sel: null, hover: null, pin: null, toast: null, tab: 'karta', tuck: false, dlg: null };
+const ui = { sel: null, hover: null, pin: null, toast: null, tab: 'karta', tuck: false, dlg: null, endHidden: false };
 const COLORS = ['brown', 'grey', 'yellow', 'red', 'blue', 'green', 'purple'];
 const HOW = { military: 'zwycięstwo militarne', science: 'zwycięstwo naukowe', civil: 'zwycięstwo cywilne' };
 const APP = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -51,20 +51,40 @@ function connect(name) {
   V = null; ui.sel = null; ui.pin = null;
   G = new KI.Game({
     code: code(), name,
-    // Animacje (fx.js): zrzut sceny i różnica stanów przed przerysowaniem, odtworzenie po nim.
+    // W grze z botem stany czekają w kolejce, aż skończy się animacja poprzedniego ruchu (bez ucinania).
     onState: v => {
-      const S = FX.snap(), E = FX.diff(V, v);
-      FX.begin(E);
-      V = v; gotAt = Date.now(); render();
-      FX.play(E, S);
+      if (playing && V && V.game && v.game && hasBot(v)) {
+        queue.push(v);
+        if (queue.length > 3) queue.splice(0, queue.length - 1);   // duże zaległości: od razu do najnowszego
+        return;
+      }
+      show(v);
     },
     onError: m => toast(m.err),
     onStatus: s => { status = s; render(); },
   });
 }
+// Animacje (fx.js): zrzut sceny i różnica stanów przed przerysowaniem, odtworzenie po nim.
+let queue = [], playing = null;
+const hasBot = v => !!(v && v.seats && v.seats.some(x => x && x.bot));
+function show(v) {
+  if (!v.game || v.game.phase !== 'end') ui.endHidden = false;
+  const S = FX.snap(), E = FX.diff(V, v);
+  FX.begin(E);
+  V = v; gotAt = Date.now(); render();
+  const p = FX.play(E, S);
+  if (!hasBot(v)) { playing = null; return; }
+  const done = playing = Promise.race([p, new Promise(r => setTimeout(r, 9000))]);
+  done.then(() => {
+    if (playing !== done) return;
+    playing = null;
+    const next = queue.shift();
+    if (next) show(next);
+  });
+}
 function route() {
   if (G) { G.stop(); G = null; }
-  V = null; status = '';
+  V = null; status = ''; queue = []; playing = null;
   if (!code()) return render();
   if (KI.seat.get(code()) || autoJoin === code()) connect(KI.nick.get());
   else render();
@@ -165,6 +185,7 @@ function topbar(g, me) {
     <div class="tb-pills"><span class="pill era">${phase}</span>${turn}<span class="pill hidden" id="timer"></span></div>
     <span class="spacer"></span>
     <span class="tb-net"><span class="dot ${net ? '' : 'off'}"></span>${net ? 'połączono' : 'łączenie…'}</span>
+    ${g.phase === 'end' && ui.endHidden ? '<button class="tb-btn gold" data-act="endshow" title="Pokaż okno wyniku">Wynik</button>' : ''}
     <button class="tb-btn" data-act="dlg" data-v="rules" title="Zasady gry w skrócie">Zasady</button>
     <button class="tb-btn" data-act="dlg" data-v="legend" title="Co znaczą ikony">Legenda</button>
     <button class="tb-btn sq" data-act="dlg" data-v="cfg" title="Kurnik i połączenie">${GEAR}</button>
@@ -380,14 +401,16 @@ function dialogHTML(g, me) {
 
 function overlayHTML(g, me) {
   if (g.phase === 'end') {
+    if (ui.endHidden) return '';
     const w = g.winner, sc = g.score || [];
     const title = w.p == null ? 'Remis!' : w.p === me ? 'Wygrywasz!' : `Wygrywa ${esc(g.players[w.p].name)}`;
     const rows = [['military', 'Wojna o Podwórze', icon('spur')], ['cards', 'Karty', icon('card')], ['guilds', 'Bractwa', ''], ['wonders', 'Kurze Cuda', icon('wonder')],
       ['tokens', 'Odkrycia', ''], ['coins', 'Skarbiec', icon('coin')], ['total', 'Razem', icon('feather')]];
-    return `<div class="overlay ${FX.holding() ? 'fx-wait' : ''}"><div class="dialog panel"><p class="win-title">${title}</p><p><b>${HOW[w.how] || ''}</b></p>
+    return `<div class="overlay ${FX.holding() ? 'fx-wait' : ''}"><div class="dialog panel"><button class="dlg-x" data-act="endhide" title="Zamknij i zobacz stół">✕</button><p class="win-title">${title}</p><p><b>${HOW[w.how] || ''}</b></p>
       ${sc.length ? `<table class="score"><tr><th></th>${g.players.map(p => `<th>${esc(p.name)}</th>`).join('')}</tr>
         ${rows.map(([k, label, ic]) => `<tr class="${k === 'total' ? 'total' : ''}"><th>${ic} ${label}</th>${sc.map(x => `<td>${x[k]}</td>`).join('')}</tr>`).join('')}</table>` : ''}
-      <p><button class="btn gold" data-act="rematch">Rewanż</button>${isBot(1 - me) ? ' <button class="btn" data-act="menu">Inny poziom</button>' : ''} <button class="btn" data-act="home">← Lobby</button></p></div></div>`;
+      <p><button class="btn gold" data-act="rematch">Rewanż</button>${isBot(1 - me) ? ' <button class="btn" data-act="menu">Inny poziom</button>' : ''} <button class="btn" data-act="home">← Lobby</button></p>
+      <p class="end-more"><button class="btn small" data-act="endhide">Zobacz stół i historię</button>${V.record ? ' <button class="btn small" data-act="rec-copy">Kopiuj zapis partii</button> <button class="btn small" data-act="rec-save">Pobierz zapis</button>' : ''}</p></div></div>`;
   }
   if (!g.pending) return '';
   const wait = FX.holding() ? 'fx-wait' : '';
@@ -405,6 +428,22 @@ function overlayHTML(g, me) {
     opts = opp.cards.filter(id => ['brown', 'grey'].includes(KI.CARDS[id].color)).map(id => `<div data-act="steal" data-v="${id}">${cardHTML(id, 'full')}</div>`).join('');
   }
   return `<div class="overlay ${wait}"><div class="dialog panel"><p class="hint">${title}</p><div class="opts">${opts}</div></div></div>`;
+}
+
+// ---------- zapis partii (po końcu gry serwer wysyła seed i wszystkie ruchy) ----------
+function recordText() {
+  const g = V.game, r = V.record;
+  return JSON.stringify({
+    gra: 'Kurczacze Imperium', zapis: 1, kod: V.code, data: new Date().toISOString(), gracze: r.names, ja: V.seat,
+    bot: V.seats.map(x => (x && x.bot) || null), seed: r.seed, wynik: (g.score || []).map(x => x.total), zwyciezca: g.winner, ruchy: r.moves,
+  });
+}
+function saveRecord() {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([recordText()], { type: 'application/json' }));
+  a.download = `kurczacze-${V.code}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
 // ---------- zegar tury ----------
@@ -483,6 +522,13 @@ document.addEventListener('click', async e => {
     try { await navigator.clipboard.writeText(url); toast('Skopiowano link: ' + url); } catch (er) { prompt('Skopiuj link zaproszenia:', url); }
   }
   else if (a === 'fxmode') { FX.setMode(v); renderStage(); }
+  else if (a === 'endhide') { ui.endHidden = true; renderStage(); }
+  else if (a === 'endshow') { ui.endHidden = false; ui.dlg = null; renderStage(); }
+  else if (a === 'rec-save') saveRecord();
+  else if (a === 'rec-copy') {
+    try { await navigator.clipboard.writeText(recordText()); toast('Skopiowano zapis partii: wklej go Claude\'owi albo zapisz w pliku.'); }
+    catch (er) { saveRecord(); toast('Schowek niedostępny: zapis pobrany jako plik.'); }
+  }
   else if (a === 'time') G.setTime(Number(v));
   else if (a === 'start') G.start();
   else if (a === 'rematch') { ui.sel = null; G.rematch(); }
